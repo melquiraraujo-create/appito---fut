@@ -96,7 +96,7 @@ textarea{min-height:86px;resize:vertical}
   <div class="header">
     <div class="title">
       <h1>⚽ APITTO FUT</h1>
-      <p>Gestão do fut de sexta — V3.2 ONLINE</p>
+      <p>Gestão do fut de sexta — V3.3 ONLINE</p>
       <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
     </div>
     <div class="event-box">
@@ -704,6 +704,7 @@ function loadDaySnapshot(dateKey){
       p.presence=snap.presences?.[p.name] || "pendente";
     });
     gameState=snap.gameState || freshGameState();
+    normalizeScore();
     if(!Array.isArray(gameState.events)) gameState.events=[];
     if(!Array.isArray(gameState.history)) gameState.history=[];
     if(!gameState.stats || typeof gameState.stats!=="object") gameState.stats={};
@@ -944,15 +945,33 @@ function opponentGoalie(side){
   const idx=side==="A"?gameState.teamB:gameState.teamA;
   return lastDraw.teams?.[idx]?.goalie || null;
 }
+function normalizeScore(){
+  const a=Number(gameState.scoreA), b=Number(gameState.scoreB);
+  gameState.scoreA=Number.isFinite(a)?a:0;
+  gameState.scoreB=Number.isFinite(b)?b:0;
+}
+function renderScoreOnly(){
+  normalizeScore();
+  const score=document.getElementById("scoreDisplay");
+  if(score) score.textContent=`${gameState.scoreA} × ${gameState.scoreB}`;
+}
 function addGoal(side,name){
+  normalizeScore();
   ensurePlayerStats(name).goals++;
-  if(side==="A") gameState.scoreA++; else gameState.scoreB++;
+  if(side==="A") gameState.scoreA=gameState.scoreA+1;
+  else gameState.scoreB=gameState.scoreB+1;
   const gk=opponentGoalie(side);
   if(gk) ensurePlayerStats(gk.name).conceded++;
   if(!Array.isArray(gameState.history)) gameState.history=[];
+  if(!Array.isArray(gameState.events)) gameState.events=[];
   gameState.history.push({type:"goal",side,name,goalie:gk?gk.name:null});
   gameState.events.unshift(`⚽ ${name} — gol para Time ${side==="A"?gameState.teamA+1:gameState.teamB+1}`);
-  localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));saveCurrentDaySnapshot(currentDateKey());renderGame();
+
+  // Atualiza o placar imediatamente antes da sincronização online.
+  renderScoreOnly();
+  localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
+  saveCurrentDaySnapshot(currentDateKey());
+  renderGame();
 }
 function addFoul(name){
   ensurePlayerStats(name).fouls++;
@@ -1020,6 +1039,7 @@ function renderSummary(){
   el.innerHTML=gameState.events.slice(0,20).map(e=>`<div style="margin:6px 0">${escapeHtml(e)}</div>`).join("");
 }
 function renderGame(){
+  normalizeScore();
   const a=document.getElementById("activeTeamA");
   const b=document.getElementById("activeTeamB");
   if(a)a.value=String(gameState.teamA);
@@ -1081,6 +1101,7 @@ function applyRemoteDay(dateKey,snap){
   try{
     state.players.forEach(p=>p.presence=snap.presences?.[p.name]||"pendente");
     gameState=snap.gameState||freshGameState();
+    normalizeScore();
     if(gameState.endAt===undefined) gameState.endAt=null;
     if(gameState.running && gameState.endAt){
       gameState.remaining=getRemainingNow();
@@ -1134,7 +1155,7 @@ startTimerLoop();
 
 <script type="module">
 // ============================================================
-// APITTO FUT V3.2 ONLINE — CONFIGURAÇÃO FIREBASE
+// APITTO FUT V3.3 ONLINE — CONFIGURAÇÃO FIREBASE
 // 1) Crie um projeto em https://console.firebase.google.com/
 // 2) Ative Realtime Database.
 // 3) Cadastre um Web App e cole abaixo os dados de firebaseConfig.
