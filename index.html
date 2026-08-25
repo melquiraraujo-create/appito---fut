@@ -96,7 +96,7 @@ textarea{min-height:86px;resize:vertical}
   <div class="header">
     <div class="title">
       <h1>⚽ APITTO FUT</h1>
-      <p>Gestão do fut de sexta — V3.5 ONLINE</p>
+      <p>Gestão do fut de sexta — V3.6 ONLINE</p>
       <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
     </div>
     <div class="event-box">
@@ -841,6 +841,48 @@ function ensurePlayerStats(name){
   if(!gameState.stats[name]) gameState.stats[name]={goals:0,fouls:0,conceded:0};
   return gameState.stats[name];
 }
+let endAlarmAudioCtx=null;
+function unlockEndAlarm(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    if(!endAlarmAudioCtx) endAlarmAudioCtx=new AC();
+    if(endAlarmAudioCtx.state==="suspended") endAlarmAudioCtx.resume();
+  }catch(e){}
+}
+function playEndAlarm(){
+  try{
+    unlockEndAlarm();
+    const ctx=endAlarmAudioCtx;
+    if(!ctx) return;
+    const now=ctx.currentTime;
+    const master=ctx.createGain();
+    master.gain.setValueAtTime(0.0001,now);
+    master.gain.exponentialRampToValueAtTime(0.55,now+0.03);
+    master.gain.setValueAtTime(0.55,now+4.7);
+    master.gain.exponentialRampToValueAtTime(0.0001,now+5.0);
+    master.connect(ctx.destination);
+
+    // Alarme forte em duas frequências alternadas, estilo sirene de emergência.
+    const steps=[
+      [0.00,880],[0.38,660],[0.76,880],[1.14,660],
+      [1.52,880],[1.90,660],[2.28,880],[2.66,660],
+      [3.04,990],[3.42,740],[3.80,990],[4.18,740]
+    ];
+    steps.forEach(([t,f],i)=>{
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      o.type="square";
+      o.frequency.setValueAtTime(f,now+t);
+      g.gain.setValueAtTime(0.0001,now+t);
+      g.gain.exponentialRampToValueAtTime(0.32,now+t+0.02);
+      g.gain.setValueAtTime(0.32,now+t+0.29);
+      g.gain.exponentialRampToValueAtTime(0.0001,now+t+0.36);
+      o.connect(g); g.connect(master);
+      o.start(now+t); o.stop(now+t+0.38);
+    });
+  }catch(e){console.warn("Alarme indisponível",e)}
+}
 function formatTime(sec){
   sec=Math.max(0,sec);
   const m=Math.floor(sec/60);
@@ -875,12 +917,14 @@ function startTimerLoop(){
       localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
       saveCurrentDaySnapshot(currentDateKey());
       updateTimerDisplay();
-      try{navigator.vibrate && navigator.vibrate([300,150,300])}catch(e){}
-      alert("⏱️ Fim dos 10 minutos!");
+      playEndAlarm();
+      try{navigator.vibrate && navigator.vibrate([500,180,500,180,500,180,900])}catch(e){}
+      alert("🚨 FIM DO JOGO — 10 MINUTOS!");
     }
   },250);
 }
 function toggleTimer(){
+  unlockEndAlarm(); // libera áudio no celular a partir do toque do usuário
   if(gameState.running){
     gameState.remaining=getRemainingNow();
     gameState.running=false;
