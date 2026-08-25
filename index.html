@@ -96,7 +96,7 @@ textarea{min-height:86px;resize:vertical}
   <div class="header">
     <div class="title">
       <h1>⚽ APITTO FUT</h1>
-      <p>Gestão do fut de sexta — V3.4 ONLINE</p>
+      <p>Gestão do fut de sexta — V3.5 ONLINE</p>
       <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
     </div>
     <div class="event-box">
@@ -704,11 +704,7 @@ function loadDaySnapshot(dateKey){
       p.presence=snap.presences?.[p.name] || "pendente";
     });
     gameState=snap.gameState || freshGameState();
-    normalizeScore();
-    if(!Array.isArray(gameState.events)) gameState.events=[];
-    if(!Array.isArray(gameState.history)) gameState.history=[];
-    if(!gameState.stats || typeof gameState.stats!=="object") gameState.stats={};
-    if(gameState.endAt===undefined) gameState.endAt=null;
+    normalizeGameState();
     if(gameState.running && gameState.endAt){
       gameState.remaining=Math.max(0,Math.ceil((gameState.endAt-Date.now())/1000));
       if(gameState.remaining<=0){gameState.running=false;gameState.endAt=null;}
@@ -841,6 +837,7 @@ function saveGameState(){
   onlinePushGame(currentDateKey(), gameState);
 }
 function ensurePlayerStats(name){
+  normalizeGameState();
   if(!gameState.stats[name]) gameState.stats[name]={goals:0,fouls:0,conceded:0};
   return gameState.stats[name];
 }
@@ -946,9 +943,22 @@ function opponentGoalie(side){
   return lastDraw.teams?.[idx]?.goalie || null;
 }
 function normalizeScore(){
-  const a=Number(gameState.scoreA), b=Number(gameState.scoreB);
+  const a=Number(gameState?.scoreA), b=Number(gameState?.scoreB);
+  if(!gameState || typeof gameState!=="object") gameState=freshGameState();
   gameState.scoreA=Number.isFinite(a)?a:0;
   gameState.scoreB=Number.isFinite(b)?b:0;
+}
+function normalizeGameState(){
+  if(!gameState || typeof gameState!=="object") gameState=freshGameState();
+  normalizeScore();
+  if(!gameState.stats || typeof gameState.stats!=="object" || Array.isArray(gameState.stats)) gameState.stats={};
+  if(!Array.isArray(gameState.events)) gameState.events=[];
+  if(!Array.isArray(gameState.history)) gameState.history=[];
+  if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=600; else gameState.remaining=Number(gameState.remaining);
+  if(!Number.isInteger(Number(gameState.teamA))) gameState.teamA=0; else gameState.teamA=Number(gameState.teamA);
+  if(!Number.isInteger(Number(gameState.teamB))) gameState.teamB=1; else gameState.teamB=Number(gameState.teamB);
+  if(gameState.endAt===undefined) gameState.endAt=null;
+  gameState.running=!!gameState.running;
 }
 function renderScoreOnly(){
   normalizeScore();
@@ -956,7 +966,7 @@ function renderScoreOnly(){
   if(score) score.textContent=`${gameState.scoreA} × ${gameState.scoreB}`;
 }
 function addGoal(side,name){
-  normalizeScore();
+  normalizeGameState();
   if(side!=="A" && side!=="B") return;
 
   ensurePlayerStats(name).goals++;
@@ -976,6 +986,7 @@ function addGoal(side,name){
   saveCurrentDaySnapshot(currentDateKey());
 }
 function addFoul(name){
+  normalizeGameState();
   ensurePlayerStats(name).fouls++;
   if(!Array.isArray(gameState.history)) gameState.history=[];
   gameState.history.push({type:"foul",name});
@@ -984,6 +995,7 @@ function addFoul(name){
 }
 
 function undoLastEvent(){
+  normalizeGameState();
   if(!Array.isArray(gameState.history) || !gameState.history.length){
     alert("Não há lance para desfazer.");
     return;
@@ -1026,6 +1038,7 @@ function renderRoster(side,teamIndex,targetId,titleId){
     </div>`).join("");
 }
 function renderRanking(){
+  normalizeGameState();
   const body=document.getElementById("rankingBody");
   if(!body) return;
   const rows=Object.entries(gameState.stats)
@@ -1035,13 +1048,14 @@ function renderRanking(){
     <tr><td>${escapeHtml(name)}</td><td>${s.goals}</td><td>${s.fouls}</td><td>${s.conceded}</td></tr>`).join("");
 }
 function renderSummary(){
+  normalizeGameState();
   const el=document.getElementById("daySummary");
   if(!el) return;
   if(!gameState.events.length){el.textContent="Nenhum evento registrado ainda.";return}
   el.innerHTML=gameState.events.slice(0,20).map(e=>`<div style="margin:6px 0">${escapeHtml(e)}</div>`).join("");
 }
 function renderGame(){
-  normalizeScore();
+  normalizeGameState();
   const a=document.getElementById("activeTeamA");
   const b=document.getElementById("activeTeamB");
   if(a)a.value=String(gameState.teamA);
@@ -1111,8 +1125,7 @@ function applyRemoteDay(dateKey,snap){
   try{
     state.players.forEach(p=>p.presence=snap.presences?.[p.name]||"pendente");
     gameState=snap.gameState||freshGameState();
-    normalizeScore();
-    if(gameState.endAt===undefined) gameState.endAt=null;
+    normalizeGameState();
     if(gameState.running && gameState.endAt){
       gameState.remaining=getRemainingNow();
       if(gameState.remaining<=0){ gameState.running=false; gameState.endAt=null; }
