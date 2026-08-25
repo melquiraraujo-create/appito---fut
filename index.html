@@ -96,7 +96,7 @@ textarea{min-height:86px;resize:vertical}
   <div class="header">
     <div class="title">
       <h1>⚽ APITTO FUT</h1>
-      <p>Gestão do fut de sexta — V3.3 ONLINE</p>
+      <p>Gestão do fut de sexta — V3.4 ONLINE</p>
       <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
     </div>
     <div class="event-box">
@@ -957,9 +957,12 @@ function renderScoreOnly(){
 }
 function addGoal(side,name){
   normalizeScore();
+  if(side!=="A" && side!=="B") return;
+
   ensurePlayerStats(name).goals++;
-  if(side==="A") gameState.scoreA=gameState.scoreA+1;
-  else gameState.scoreB=gameState.scoreB+1;
+  if(side==="A") gameState.scoreA += 1;
+  else gameState.scoreB += 1;
+
   const gk=opponentGoalie(side);
   if(gk) ensurePlayerStats(gk.name).conceded++;
   if(!Array.isArray(gameState.history)) gameState.history=[];
@@ -967,11 +970,10 @@ function addGoal(side,name){
   gameState.history.push({type:"goal",side,name,goalie:gk?gk.name:null});
   gameState.events.unshift(`⚽ ${name} — gol para Time ${side==="A"?gameState.teamA+1:gameState.teamB+1}`);
 
-  // Atualiza o placar imediatamente antes da sincronização online.
-  renderScoreOnly();
+  // A tela é atualizada primeiro; a nuvem vem depois.
+  renderGame();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
-  renderGame();
 }
 function addFoul(name){
   ensurePlayerStats(name).fouls++;
@@ -1066,8 +1068,14 @@ function escapeJs(s){
 // Estas funções são substituídas pelo módulo Firebase abaixo quando a conexão é iniciada.
 window.apittoOnline = null;
 let applyingRemote=false;
+let localDayWriteUntil=0;
 function onlinePushCore(){ if(!applyingRemote && window.apittoOnline?.pushCore) window.apittoOnline.pushCore(); }
-function onlinePushDay(dateKey,snap){ if(!applyingRemote && window.apittoOnline?.pushDay) window.apittoOnline.pushDay(dateKey,snap); }
+function onlinePushDay(dateKey,snap){
+  if(!applyingRemote && window.apittoOnline?.pushDay){
+    localDayWriteUntil=Date.now()+1500;
+    window.apittoOnline.pushDay(dateKey,snap);
+  }
+}
 function onlinePushPayments(history){ if(!applyingRemote && window.apittoOnline?.pushPayments) window.apittoOnline.pushPayments(history); }
 function onlinePushGame(dateKey,game){ if(!applyingRemote && window.apittoOnline?.pushGame) window.apittoOnline.pushGame(dateKey,game); }
 function onlinePushAdminPublic(){ if(!applyingRemote && window.apittoOnline?.pushAdminPublic) window.apittoOnline.pushAdminPublic(); }
@@ -1095,6 +1103,8 @@ function applyRemoteCore(remote){
 }
 function applyRemoteDay(dateKey,snap){
   if(!dateKey||!snap)return;
+  // Evita que um snapshot remoto ligeiramente atrasado desfaça um gol/falta recém lançado neste aparelho.
+  if(dateKey===currentDateKey() && Date.now()<localDayWriteUntil) return;
   const store=loadDailyStore();store[dateKey]=snap;saveDailyStore(store);
   if(dateKey!==currentDateKey())return;
   applyingRemote=true;
@@ -1155,7 +1165,7 @@ startTimerLoop();
 
 <script type="module">
 // ============================================================
-// APITTO FUT V3.3 ONLINE — CONFIGURAÇÃO FIREBASE
+// APITTO FUT V3.4 ONLINE — CONFIGURAÇÃO FIREBASE
 // 1) Crie um projeto em https://console.firebase.google.com/
 // 2) Ative Realtime Database.
 // 3) Cadastre um Web App e cole abaixo os dados de firebaseConfig.
