@@ -59,12 +59,13 @@ textarea{min-height:86px;resize:vertical}
 .online-dot{width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12)}
 .online-status.online .online-dot{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
 .online-status.offline .online-dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
-.manage-table th:nth-child(1),.manage-table td:nth-child(1){width:25%}
-.manage-table th:nth-child(2),.manage-table td:nth-child(2){width:22%}
-.manage-table th:nth-child(3),.manage-table td:nth-child(3){width:17%}
-.manage-table th:nth-child(4),.manage-table td:nth-child(4){width:21%}
-.manage-table th:nth-child(5),.manage-table td:nth-child(5){width:15%;text-align:center}
-.small-btn{padding:8px 9px}
+.manage-table th:nth-child(1),.manage-table td:nth-child(1){width:22%}
+.manage-table th:nth-child(2),.manage-table td:nth-child(2){width:19%}
+.manage-table th:nth-child(3),.manage-table td:nth-child(3){width:16%}
+.manage-table th:nth-child(4),.manage-table td:nth-child(4){width:20%}
+.manage-table th:nth-child(5),.manage-table td:nth-child(5){width:23%;text-align:center}
+.small-btn{padding:8px 9px;white-space:nowrap}
+.manage-actions{display:flex;justify-content:center;gap:6px;flex-wrap:nowrap}
 .public-table th:nth-child(1),.public-table td:nth-child(1){width:34%}
 .public-table th:nth-child(2),.public-table td:nth-child(2){width:22%}
 .public-table th:nth-child(3),.public-table td:nth-child(3){width:32%}
@@ -234,7 +235,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V3.6</div>
+    <div>Fut - Apitto Arena — V3.7</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -431,8 +432,9 @@ function renderManage(){
       </select></td>
       <td>
         <div class="controls">
-          <button class="green small-btn" onclick="messagePlayer(${i})">Whats</button>
-          <button class="danger small-btn" onclick="removePlayer(${i})">🗑</button>
+          <button class="orange small-btn" onclick="messagePaymentPlayer(${i})" title="Enviar cobrança individual">💰 Cobrar</button>
+          <button class="green small-btn" onclick="messagePresencePlayer(${i})" title="Pedir confirmação de presença">✅ Presença</button>
+          <button class="danger small-btn" onclick="removePlayer(${i})" title="Excluir jogador">🗑</button>
         </div>
       </td>`;
     body.appendChild(tr);
@@ -590,12 +592,32 @@ function fillTemplate(t,p){
     .replaceAll("{pix}",admin.pix||"")
     .replaceAll("{link}",pageLink());
 }
-function messagePlayer(i){
+function openPlayerWhatsApp(i,msg){
   const p=state.players[i];
   if(!p.phone){alert("Cadastre o WhatsApp deste jogador primeiro.");return}
   const phone=normalizeBRPhone(p.phone);
-  const msg=fillTemplate(admin.directTemplate||"",p);
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,"_blank");
+}
+function messagePaymentPlayer(i){
+  saveAdminSettingsSilent();
+  const p=state.players[i];
+  const msg=fillTemplate(admin.directTemplate||"",p);
+  openPlayerWhatsApp(i,msg);
+}
+function messagePresencePlayer(i){
+  const p=state.players[i];
+  const msg=`Olá, ${p.name}! Tudo bem?
+
+⚽ *FUT DE SEXTA — CONFIRMAÇÃO*
+
+Você consegue confirmar sua presença para ${eventDateText()} pelo link:
+${pageLink()}
+
+✅ Presente
+❌ Ausente
+
+Assim conseguimos organizar os times antes do jogo.`;
+  openPlayerWhatsApp(i,msg);
 }
 function normalizeBRPhone(v){
   let n=String(v).replace(/\D/g,"");
