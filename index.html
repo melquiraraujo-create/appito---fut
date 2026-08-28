@@ -235,7 +235,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V3.8</div>
+    <div>Fut - Apitto Arena — V3.9</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -354,12 +354,16 @@ let gameState=loadGameState();
 let timerInterval=null;
 let pinMode="login";
 
+function normalizeMonthlyStatus(v){
+  return v==="avulso" ? "avulso_pendente" : v;
+}
+
 function loadState(){
   const raw=localStorage.getItem(STORAGE_KEY);
   if(raw){
     try{
       const s=JSON.parse(raw);
-      s.players=(s.players||[]).map(p=>({...p,phone:p.phone||"",goalie:!!p.goalie}));
+      s.players=(s.players||[]).map(p=>({...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie}));
       return s;
     }catch(e){}
   }
@@ -431,7 +435,8 @@ function renderManage(){
         <option value="pago" ${p.monthly==="pago"?"selected":""}>🟢 Pago</option>
         <option value="pendente" ${p.monthly==="pendente"?"selected":""}>🔴 A pagar</option>
         <option value="isento" ${p.monthly==="isento"?"selected":""}>⚪ Isento</option>
-        <option value="avulso" ${p.monthly==="avulso"?"selected":""}>🎟️ Avulso</option>
+        <option value="avulso_pago" ${p.monthly==="avulso_pago"?"selected":""}>🎟️ 🟢 Avulso pago</option>
+        <option value="avulso_pendente" ${p.monthly==="avulso_pendente"?"selected":""}>🎟️ 🔴 Avulso a pagar</option>
       </select></td>
       <td>
         <div class="controls">
@@ -490,7 +495,7 @@ function updateStats(){
   document.getElementById("statPresent").textContent=state.players.filter(p=>p.presence==="confirmado").length;
   document.getElementById("statPresencePending").textContent=state.players.filter(p=>p.presence==="pendente").length;
   document.getElementById("statAbsent").textContent=state.players.filter(p=>p.presence==="nao").length;
-  document.getElementById("statCasual").textContent=state.players.filter(p=>p.monthly==="avulso").length;
+  document.getElementById("statCasual").textContent=state.players.filter(p=>p.monthly==="avulso_pago"||p.monthly==="avulso_pendente").length;
 }
 
 function requestResetEvents(){
@@ -571,14 +576,16 @@ function openModal(id){document.getElementById(id).classList.add("open");documen
 function closeModal(id){document.getElementById(id).classList.remove("open");document.body.style.overflow=""}
 function backdropClose(e,id){if(e.target.id===id)closeModal(id)}
 
-function paymentLabel(v){return ({pago:"Pago",pendente:"A pagar",isento:"Isento",avulso:"Avulso"})[v]||v}
+function paymentLabel(v){return ({pago:"Pago",pendente:"A pagar",isento:"Isento",avulso_pago:"Avulso pago",avulso_pendente:"Avulso a pagar"})[normalizeMonthlyStatus(v)]||v}
 function publicPaymentStatus(v){
   const map={
     pago:'<span class="pill">✅ Pago</span>',
     pendente:'<span class="pill">⏳ A pagar</span>',
     isento:'<span class="pill">⚪ Isento</span>',
-    avulso:'<span class="pill">🎟️ Avulso</span>'
+    avulso_pago:'<span class="pill">🎟️ ✅ Avulso pago</span>',
+    avulso_pendente:'<span class="pill">🎟️ ⏳ Avulso a pagar</span>'
   };
+  v=normalizeMonthlyStatus(v);
   return map[v] || '<span class="pill">—</span>';
 }
 function eventDateText(){
@@ -809,14 +816,20 @@ function loadPaymentsForMonth(dateKey){
   const saved=history[mk];
 
   if(saved){
+    let migratedLegacyAvulso=false;
     state.players.forEach(p=>{
-      if(saved[p.name]) p.monthly=saved[p.name];
+      if(saved[p.name]){
+        const normalized=normalizeMonthlyStatus(saved[p.name]);
+        if(normalized!==saved[p.name]) migratedLegacyAvulso=true;
+        p.monthly=normalized;
+      }
     });
+    if(migratedLegacyAvulso) savePaymentsForMonth(dateKey);
   }else{
     // Primeiro acesso a este mês: abre uma nova mensalidade.
     state.players.forEach(p=>{
       if(p.monthly==="pago" || p.monthly==="pendente") p.monthly="pendente";
-      // Isento e avulso permanecem como estão.
+      // Isentos e os dois status de avulso permanecem como estão.
     });
     savePaymentsForMonth(dateKey);
   }
@@ -1186,9 +1199,10 @@ function setOnlineStatus(mode,text){
 }
 function applyRemoteCore(remote){
   if(!remote)return;
+  const migratedLegacyAvulso=Array.isArray(remote.players)&&remote.players.some(p=>p.monthly==="avulso");
   applyingRemote=true;
   try{
-    if(Array.isArray(remote.players)) state.players=remote.players.map(p=>({...p,phone:p.phone||"",goalie:!!p.goalie}));
+    if(Array.isArray(remote.players)) state.players=remote.players.map(p=>({...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie}));
     if(remote.eventDate!==undefined) state.eventDate=remote.eventDate||"";
     if(remote.eventTime!==undefined) state.eventTime=remote.eventTime||"20:00 às 21:30";
     if(remote.eventPlace!==undefined) state.eventPlace=remote.eventPlace||"Apitto Arena Alphaville";
@@ -1198,6 +1212,7 @@ function applyRemoteCore(remote){
     document.getElementById("eventPlace").value=state.eventPlace||"Apitto Arena Alphaville";
     renderPlayers();renderManage();
   }finally{applyingRemote=false;}
+  if(migratedLegacyAvulso) setTimeout(()=>onlinePushCore(),0);
 }
 function applyRemoteDay(dateKey,snap){
   if(!dateKey||!snap)return;
