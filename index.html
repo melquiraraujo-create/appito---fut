@@ -41,14 +41,14 @@ textarea{min-height:86px;resize:vertical}
 .player-type{font-size:22px;text-align:center}
 .times{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
 .team{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px;min-height:170px}
-.team h3{margin:0 0 10px}.team ul{margin:0;padding-left:22px}.team li{margin:7px 0}
+.team h3{margin:0}.team ul{margin:0;padding-left:22px}.team li{margin:7px 0}
 .goalie{list-style:none;margin-left:-20px!important;font-weight:700}
-.team-tools{margin-top:14px;padding:14px;background:#101923;border:1px solid var(--line);border-radius:14px}
-.team-tools h3{margin:0 0 10px}
-.late-player-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(170px,230px) auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
-.late-player-row:last-child{border-bottom:none}
-.team-move-row{display:grid;grid-template-columns:1fr minmax(170px,230px) auto;gap:8px;align-items:center;margin-top:10px}
-.team-tools summary{cursor:pointer;color:#c8d6e5;font-weight:700}
+.team-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.team-edit-btn{display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:50%;font-size:24px;line-height:1;background:var(--green)}
+.color-grid{display:grid;gap:9px}
+.team-editor-add{display:grid;grid-template-columns:1fr auto;gap:8px}
+.team-editor-player{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.team-editor-player:last-child{border-bottom:none}
 .rotation-info{margin:10px 0 0;padding:9px 11px;border:1px dashed #38506b;border-radius:10px;background:#101a25}
 .info{color:var(--muted);font-size:14px;line-height:1.5}.empty{color:var(--muted);padding:12px 0}
 .footer{color:var(--muted);text-align:center;font-size:12px;padding-bottom:20px}
@@ -103,7 +103,7 @@ textarea{min-height:86px;resize:vertical}
   .wrap{padding:12px}.title{gap:12px}.brand-mark{width:86px;height:91px;flex-basis:86px}.brand-mark img{width:91px;height:96px}.title h1{font-size:clamp(21px,5.8vw,27px);letter-spacing:-.8px}.title p{font-size:13px}
   table{font-size:13px}th,td{padding:8px 5px}select{font-size:12px}button{padding:9px 11px}
   .admin-grid{grid-template-columns:1fr}
-  .late-player-row,.team-move-row{grid-template-columns:1fr}
+  .team-editor-add{grid-template-columns:1fr}
   .manage-table{min-width:820px}
 }
 </style>
@@ -157,25 +157,20 @@ textarea{min-height:86px;resize:vertical}
     <div class="section-head">
       <div>
         <h2>🎲 Sorteio de Times</h2>
-        <div class="info">Times 1 e 2 começam jogando. Inclua atrasados em “Ajustar times” sem refazer o sorteio.</div>
+        <div class="info">Escolha as cores dos coletes antes do sorteio. Depois, use ＋ em cada time para adicionar ou remover jogadores.</div>
       </div>
       <div class="controls">
-        <button class="green" onclick="drawTeams()">🎲 Sortear</button>
+        <button class="green" onclick="requestDrawTeams()">🎲 Sortear</button>
         <button class="secondary" onclick="copyTeams()">📋 Copiar times</button>
         <button class="danger" onclick="clearTeams()">🧹 Limpar times</button>
       </div>
     </div>
     <div id="drawMessage" class="info"></div>
     <div class="times">
-      <div class="team"><h3>TIME 1</h3><div id="team1" class="empty">Ainda não sorteado.</div></div>
-      <div class="team"><h3>TIME 2</h3><div id="team2" class="empty">Ainda não sorteado.</div></div>
-      <div class="team"><h3>TIME 3</h3><div id="team3" class="empty">Ainda não sorteado.</div></div>
-      <div class="team"><h3>TIME 4</h3><div id="team4" class="empty">Ainda não sorteado.</div></div>
-    </div>
-    <div id="teamTools" class="team-tools" hidden>
-      <h3>👥 Ajustar times</h3>
-      <div id="unassignedPlayers"></div>
-      <div id="assignedMoveControls" style="margin-top:12px"></div>
+      <div class="team" id="teamCard1"><div class="team-card-head"><h3 id="teamTitle1">TIME 1</h3><button id="teamEdit1" class="team-edit-btn" onclick="openTeamEditor(0)" hidden>＋</button></div><div id="team1" class="empty">Ainda não sorteado.</div></div>
+      <div class="team" id="teamCard2"><div class="team-card-head"><h3 id="teamTitle2">TIME 2</h3><button id="teamEdit2" class="team-edit-btn" onclick="openTeamEditor(1)" hidden>＋</button></div><div id="team2" class="empty">Ainda não sorteado.</div></div>
+      <div class="team" id="teamCard3"><div class="team-card-head"><h3 id="teamTitle3">TIME 3</h3><button id="teamEdit3" class="team-edit-btn" onclick="openTeamEditor(2)" hidden>＋</button></div><div id="team3" class="empty">Ainda não sorteado.</div></div>
+      <div class="team" id="teamCard4"><div class="team-card-head"><h3 id="teamTitle4">TIME 4</h3><button id="teamEdit4" class="team-edit-btn" onclick="openTeamEditor(3)" hidden>＋</button></div><div id="team4" class="empty">Ainda não sorteado.</div></div>
     </div>
   </div>
 
@@ -249,7 +244,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.0</div>
+    <div>Fut - Apitto Arena — V4.1</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -333,6 +328,34 @@ textarea{min-height:86px;resize:vertical}
   </div>
 </div>
 
+<!-- Cores dos coletes -->
+<div id="colorsModal" class="modal" onclick="backdropClose(event,'colorsModal')">
+  <div class="modal-card modal-small">
+    <div class="modal-head"><h2>🎽 Cores dos coletes</h2><button class="secondary" onclick="closeModal('colorsModal')">✕</button></div>
+    <div class="info" style="margin-bottom:12px">Informe de 2 a 4 cores. A quantidade preenchida define quantos times serão sorteados.</div>
+    <div class="color-grid">
+      <input id="teamColor1" class="text-input" placeholder="Cor do time 1 — ex.: Amarelo">
+      <input id="teamColor2" class="text-input" placeholder="Cor do time 2 — ex.: Azul">
+      <input id="teamColor3" class="text-input" placeholder="Cor do time 3 — ex.: Preto">
+      <input id="teamColor4" class="text-input" placeholder="Cor do time 4 — opcional">
+    </div>
+    <button class="green" style="width:100%;margin-top:12px" onclick="confirmDrawTeams()">🎲 Confirmar e sortear</button>
+  </div>
+</div>
+
+<!-- Editor individual de time -->
+<div id="teamEditorModal" class="modal" onclick="backdropClose(event,'teamEditorModal')">
+  <div class="modal-card modal-small">
+    <div class="modal-head"><h2 id="teamEditorTitle">Editar time</h2><button class="secondary" onclick="closeModal('teamEditorModal')">✕</button></div>
+    <div class="info" style="margin-bottom:10px">Você pode adicionar qualquer jogador, inclusive alguém que já esteja em outro time.</div>
+    <div class="team-editor-add">
+      <select id="teamEditorPlayerSelect"></select>
+      <button id="teamEditorAddButton" class="green" onclick="addSelectedPlayerToTeam()">＋ Adicionar</button>
+    </div>
+    <div id="teamEditorRoster" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY="apitto_fut_v1";
 const ADMIN_KEY="apitto_fut_admin_v15";
@@ -367,6 +390,7 @@ let lastDraw=null;
 let gameState=loadGameState();
 let timerInterval=null;
 let pinMode="login";
+let activeTeamEditor=null;
 
 function normalizeMonthlyStatus(v){
   return v==="avulso" ? "avulso_pendente" : v;
@@ -417,10 +441,10 @@ function saveAdminSettings(){
 
 function renderPlayers(){
   const body=document.getElementById("playersBody");body.innerHTML="";
-  state.players.forEach((p,i)=>{
+  sortedPlayerEntries().forEach(({player:p,index:i},orderIndex)=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
-      <td>${i+1}. ${escapeHtml(p.name)}</td>
+      <td>${orderIndex+1}. ${escapeHtml(p.name)}</td>
       <td>${publicPaymentStatus(p.monthly)}</td>
       <td>
         <select onchange="updatePlayer(${i},'presence',this.value)">
@@ -436,7 +460,7 @@ function renderPlayers(){
 }
 function renderManage(){
   const body=document.getElementById("manageBody");body.innerHTML="";
-  state.players.forEach((p,i)=>{
+  sortedPlayerEntries().forEach(({player:p,index:i})=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><input class="text-input" value="${escapeHtml(p.name)}" onchange="updateManaged(${i},'name',this.value)"></td>
@@ -673,6 +697,14 @@ function saveAdminSettingsSilent(){
   localStorage.setItem(ADMIN_KEY,JSON.stringify(admin));
 }
 
+function comparePlayerNames(a,b){
+  return String(a?.name||"").localeCompare(String(b?.name||""),"pt-BR",{sensitivity:"base"});
+}
+function sortedPlayerEntries(){
+  return state.players
+    .map((player,index)=>({player,index}))
+    .sort((a,b)=>comparePlayerNames(a.player,b.player));
+}
 function ensureDrawTeams(){
   if(!lastDraw)return;
   if(!Array.isArray(lastDraw.teams))lastDraw.teams=[];
@@ -681,22 +713,34 @@ function ensureDrawTeams(){
     goalie:t?.goalie||null,
     line:Array.isArray(t?.line)?t.line:[]
   }));
+  const inferred=lastDraw.teams.reduce((count,team,index)=>teamCount(team)>0?index+1:count,0);
+  if(!Number.isInteger(lastDraw.teamCount)||lastDraw.teamCount<2||lastDraw.teamCount>4){
+    lastDraw.teamCount=Math.min(4,Math.max(2,inferred||4));
+  }
+  if(!Array.isArray(lastDraw.teamNames))lastDraw.teamNames=[];
+  lastDraw.teamNames=Array.from({length:4},(_,i)=>
+    String(lastDraw.teamNames[i]||`Time ${i+1}`).trim()
+  );
 }
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function teamCount(team){
   return (team?.goalie?1:0)+(Array.isArray(team?.line)?team.line.length:0);
 }
+function configuredTeamCount(){
+  ensureDrawTeams();
+  return lastDraw?.teamCount||4;
+}
+function teamDisplayName(teamIndex){
+  ensureDrawTeams();
+  return lastDraw?.teamNames?.[teamIndex]||`Time ${teamIndex+1}`;
+}
 function availableTeamIndexes(){
   ensureDrawTeams();
   if(!lastDraw)return [];
-  return lastDraw.teams.map((team,i)=>teamCount(team)>0?i:-1).filter(i=>i>=0);
-}
-function assignedTeamForPlayer(name){
-  ensureDrawTeams();
-  if(!lastDraw)return -1;
-  return lastDraw.teams.findIndex(team=>
-    team?.goalie?.name===name || (team?.line||[]).some(p=>p.name===name)
-  );
+  return lastDraw.teams
+    .slice(0,configuredTeamCount())
+    .map((team,i)=>teamCount(team)>0?i:-1)
+    .filter(i=>i>=0);
 }
 function resetMatchRotation(){
   if(!gameState||typeof gameState!=="object")return;
@@ -713,191 +757,203 @@ function stopAndResetMatchClock(){
   gameState.endAt=null;
   if(timerInterval){clearInterval(timerInterval);timerInterval=null}
 }
-function drawTeams(){
+function requestDrawTeams(){
+  const previous=Array.isArray(lastDraw?.teamNames)?lastDraw.teamNames:[];
+  for(let i=0;i<4;i++){
+    const input=document.getElementById(`teamColor${i+1}`);
+    if(input)input.value=previous[i]&&!/^Time \d$/i.test(previous[i])?previous[i]:"";
+  }
+  openModal("colorsModal");
+  setTimeout(()=>document.getElementById("teamColor1")?.focus(),50);
+}
+function confirmDrawTeams(){
+  const colors=[];
+  for(let i=1;i<=4;i++){
+    const value=document.getElementById(`teamColor${i}`)?.value.trim();
+    if(value)colors.push(value);
+  }
+  if(colors.length<2){
+    alert("Informe pelo menos duas cores de colete.");
+    return;
+  }
+  const normalized=colors.map(x=>x.toLocaleLowerCase("pt-BR"));
+  if(new Set(normalized).size!==normalized.length){
+    alert("Informe cores diferentes para cada time.");
+    return;
+  }
+  closeModal("colorsModal");
+  drawTeams(colors);
+}
+function drawTeams(teamNames){
+  const names=Array.isArray(teamNames)?teamNames.map(x=>String(x).trim()).filter(Boolean):[];
+  if(names.length<2){requestDrawTeams();return}
+  const teamCountToDraw=Math.min(4,names.length);
   const confirmed=state.players.filter(p=>p.presence==="confirmado");
   const goalies=shuffle(confirmed.filter(p=>p.goalie));
   const line=shuffle(confirmed.filter(p=>!p.goalie));
   const teams=[{goalie:null,line:[]},{goalie:null,line:[]},{goalie:null,line:[]},{goalie:null,line:[]}];
-  for(let i=0;i<Math.min(goalies.length,4);i++)teams[i].goalie=goalies[i];
+  for(let i=0;i<Math.min(goalies.length,teamCountToDraw);i++)teams[i].goalie=goalies[i];
   let idx=0;
-  for(let t=0;t<4&&idx<line.length;t++)while(teams[t].line.length<6&&idx<line.length)teams[t].line.push(line[idx++]);
-  lastDraw={teams};
+  for(let t=0;t<teamCountToDraw&&idx<line.length;t++){
+    while(teams[t].line.length<6&&idx<line.length)teams[t].line.push(line[idx++]);
+  }
+  const fullNames=Array.from({length:4},(_,i)=>names[i]||`Time ${i+1}`);
+  lastDraw={teams,teamNames:fullNames,teamCount:teamCountToDraw};
+  activeTeamEditor=null;
   resetMatchRotation();
   gameState.teamA=0;
   gameState.teamB=1;
   stopAndResetMatchClock();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
-  document.getElementById("drawMessage").textContent=`✅ ${confirmed.length} jogador(es) confirmado(s) distribuído(s).`;
+  const distributed=teams.slice(0,teamCountToDraw).reduce((sum,team)=>sum+teamCount(team),0);
+  const outside=Math.max(0,confirmed.length-distributed);
   renderTeams();
+  document.getElementById("drawMessage").textContent=outside
+    ?`✅ ${distributed} distribuído(s); ${outside} ficou(aram) fora por falta de vaga.`
+    :`✅ ${distributed} jogador(es) distribuído(s).`;
   saveCurrentDaySnapshot(currentDateKey());
+}
+function updateTeamLabels(){
+  const count=lastDraw?configuredTeamCount():4;
+  ["activeTeamA","activeTeamB"].forEach((id,selectIndex)=>{
+    const select=document.getElementById(id);
+    if(!select)return;
+    const previous=Number(select.value);
+    select.innerHTML=Array.from({length:count},(_,i)=>
+      `<option value="${i}">${escapeHtml(teamDisplayName(i))}</option>`
+    ).join("");
+    const fallback=selectIndex===0?0:Math.min(1,count-1);
+    select.value=String(previous>=0&&previous<count?previous:fallback);
+  });
 }
 function renderTeams(){
   clearDraw();
   if(!lastDraw)return;
   ensureDrawTeams();
-  lastDraw.teams.forEach((team,i)=>{
+  const count=configuredTeamCount();
+  for(let i=0;i<4;i++){
+    const card=document.getElementById(`teamCard${i+1}`);
+    const editButton=document.getElementById(`teamEdit${i+1}`);
+    const title=document.getElementById(`teamTitle${i+1}`);
+    if(card)card.hidden=i>=count;
+    if(editButton)editButton.hidden=i>=count;
+    if(title)title.textContent=teamDisplayName(i).toLocaleUpperCase("pt-BR");
+    if(i>=count)continue;
+    const team=lastDraw.teams[i];
     const el=document.getElementById(`team${i+1}`);
-    const count=teamCount(team);
-    if(!count){el.innerHTML='<div class="empty">Sem jogadores neste time.</div>';return}
+    const total=teamCount(team);
+    if(!total){el.innerHTML='<div class="empty">Sem jogadores neste time.</div>';continue}
     const complete=!!team.goalie&&team.line.length===6;
     const status=i>=2?"Próximo / banco":(complete?"Time completo":"Próximo / banco");
-    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status} — ${count} jogador(es)</div><ul>
+    const sortedLine=[...team.line].sort(comparePlayerNames);
+    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status} — ${total} jogador(es)</div><ul>
       ${team.goalie?`<li class="goalie">🧤 ${escapeHtml(team.goalie.name)}</li>`:""}
-      ${team.line.map(p=>`<li>⚽ ${escapeHtml(p.name)}</li>`).join("")}
+      ${sortedLine.map(p=>`<li>⚽ ${escapeHtml(p.name)}</li>`).join("")}
     </ul>`;
-  });
-  renderTeamTools();
+  }
+  updateTeamLabels();
   renderGame();
+  if(document.getElementById("teamEditorModal")?.classList.contains("open"))renderTeamEditor();
 }
-function teamTargetOptions(selected,includeOutside){
+function playerInTeam(team,playerName){
+  return team?.goalie?.name===playerName||(team?.line||[]).some(p=>p.name===playerName);
+}
+function playerMemberships(playerName){
   ensureDrawTeams();
-  let html=includeOutside?`<option value="-1" ${selected===-1?"selected":""}>Fora dos times</option>`:"";
-  html+=lastDraw.teams.map((team,i)=>
-    `<option value="${i}" ${selected===i?"selected":""}>Time ${i+1} (${teamCount(team)}/7)</option>`
-  ).join("");
-  return html;
+  if(!lastDraw)return [];
+  return lastDraw.teams
+    .slice(0,configuredTeamCount())
+    .map((team,index)=>playerInTeam(team,playerName)?index:-1)
+    .filter(index=>index>=0);
 }
-function canPlacePlayerOnTeam(player,teamIndex,showAlert){
+function canAddPlayerToSpecificTeam(player,teamIndex,showAlert){
   ensureDrawTeams();
   const team=lastDraw?.teams?.[teamIndex];
   if(!team){
     if(showAlert)alert("Time inválido.");
     return false;
   }
+  if(playerInTeam(team,player.name)){
+    if(showAlert)alert(`${player.name} já está neste time.`);
+    return false;
+  }
   if(player.goalie&&team.goalie){
-    if(showAlert)alert(`O Time ${teamIndex+1} já possui goleiro.`);
+    if(showAlert)alert(`${teamDisplayName(teamIndex)} já possui goleiro.`);
     return false;
   }
   if(!player.goalie&&team.line.length>=6){
-    if(showAlert)alert(`O Time ${teamIndex+1} já possui 6 jogadores de linha.`);
+    if(showAlert)alert(`${teamDisplayName(teamIndex)} já possui 6 jogadores de linha.`);
     return false;
   }
   return true;
 }
-function suggestedTeamIndex(player){
-  ensureDrawTeams();
-  if(!lastDraw)return 0;
-  const indexes=[0,1,2,3];
-  const ordered=[
-    ...indexes.filter(i=>teamCount(lastDraw.teams[i])>0),
-    ...indexes.filter(i=>teamCount(lastDraw.teams[i])===0)
-  ];
-  return ordered.find(i=>canPlacePlayerOnTeam(player,i,false)) ?? 0;
-}
-function renderTeamTools(){
-  const panel=document.getElementById("teamTools");
-  const unassignedBox=document.getElementById("unassignedPlayers");
-  const moveBox=document.getElementById("assignedMoveControls");
-  if(!panel||!unassignedBox||!moveBox)return;
-  if(!lastDraw){
-    panel.hidden=true;
-    return;
-  }
-  panel.hidden=false;
-  ensureDrawTeams();
-
-  const unassigned=state.players
-    .map((player,index)=>({player,index}))
-    .filter(({player})=>player.presence==="confirmado"&&assignedTeamForPlayer(player.name)<0);
-
-  if(unassigned.length){
-    unassignedBox.innerHTML=`
-      <div class="info" style="margin-bottom:8px">Jogadores que chegaram depois do sorteio:</div>
-      ${unassigned.map(({player,index})=>{
-        const suggested=suggestedTeamIndex(player);
-        return `<div class="late-player-row">
-          <div><strong>${escapeHtml(player.name)}</strong><div class="info">${player.goalie?"🧤 Goleiro":"⚽ Linha"}</div></div>
-          <select id="lateTarget-${index}">${teamTargetOptions(suggested,false)}</select>
-          <button class="green" onclick="addLatePlayerToTeam(${index})">➕ Adicionar</button>
-        </div>`;
-      }).join("")}`;
-  }else{
-    unassignedBox.innerHTML='<div class="info">Nenhum jogador presente está fora dos times.</div>';
-  }
-
-  const assigned=[];
-  lastDraw.teams.forEach((team,teamIndex)=>{
-    const players=[team.goalie,...team.line].filter(Boolean);
-    players.forEach(player=>{
-      const playerIndex=state.players.findIndex(p=>p.name===player.name);
-      if(playerIndex>=0)assigned.push({player,playerIndex,teamIndex});
-    });
-  });
-
-  moveBox.innerHTML=assigned.length?`
-    <details>
-      <summary>↔ Mover ou remover jogador</summary>
-      <div class="team-move-row">
-        <select id="assignedPlayerSelect">
-          ${assigned.map(x=>`<option value="${x.playerIndex}">${escapeHtml(x.player.name)} — Time ${x.teamIndex+1}</option>`).join("")}
-        </select>
-        <select id="assignedTargetSelect">${teamTargetOptions(-1,true)}</select>
-        <button class="secondary" onclick="moveAssignedPlayer()">Aplicar</button>
-      </div>
-    </details>`:"";
-}
-function addPlayerCopyToTeam(player,teamIndex){
-  const team=lastDraw.teams[teamIndex];
-  const copy={...player,goalie:!!player.goalie,phone:player.phone||""};
-  if(copy.goalie)team.goalie=copy;
-  else team.line.push(copy);
-}
-function removePlayerFromDraw(name){
-  ensureDrawTeams();
-  for(let i=0;i<lastDraw.teams.length;i++){
-    const team=lastDraw.teams[i];
-    if(team.goalie?.name===name){
-      const removed=team.goalie;
-      team.goalie=null;
-      return {player:removed,teamIndex:i};
-    }
-    const lineIndex=team.line.findIndex(p=>p.name===name);
-    if(lineIndex>=0){
-      const [removed]=team.line.splice(lineIndex,1);
-      return {player:removed,teamIndex:i};
-    }
-  }
-  return null;
-}
-function persistTeamAdjustment(){
-  saveCurrentDaySnapshot(currentDateKey());
-  renderTeams();
-}
-function addLatePlayerToTeam(playerIndex){
+function openTeamEditor(teamIndex){
   if(!lastDraw){alert("Faça o sorteio primeiro.");return}
-  const player=state.players[playerIndex];
-  if(!player||player.presence!=="confirmado"){
-    alert("Marque o jogador como Presente antes de adicioná-lo.");
-    return;
-  }
-  if(assignedTeamForPlayer(player.name)>=0){
-    alert("Este jogador já está em um time.");
-    renderTeamTools();
-    return;
-  }
-  const select=document.getElementById(`lateTarget-${playerIndex}`);
-  const teamIndex=Number(select?.value);
-  if(!canPlacePlayerOnTeam(player,teamIndex,true))return;
-  addPlayerCopyToTeam(player,teamIndex);
-  persistTeamAdjustment();
+  ensureDrawTeams();
+  if(teamIndex<0||teamIndex>=configuredTeamCount())return;
+  activeTeamEditor=teamIndex;
+  renderTeamEditor();
+  openModal("teamEditorModal");
 }
-function moveAssignedPlayer(){
-  if(!lastDraw)return;
-  const playerIndex=Number(document.getElementById("assignedPlayerSelect")?.value);
-  const targetIndex=Number(document.getElementById("assignedTargetSelect")?.value);
+function renderTeamEditor(){
+  if(activeTeamEditor===null||!lastDraw)return;
+  ensureDrawTeams();
+  const team=lastDraw.teams[activeTeamEditor];
+  const title=document.getElementById("teamEditorTitle");
+  const select=document.getElementById("teamEditorPlayerSelect");
+  const addButton=document.getElementById("teamEditorAddButton");
+  const roster=document.getElementById("teamEditorRoster");
+  if(title)title.textContent=`Editar ${teamDisplayName(activeTeamEditor)}`;
+
+  const candidates=sortedPlayerEntries().filter(({player})=>!playerInTeam(team,player.name));
+  if(select){
+    select.innerHTML=candidates.length?candidates.map(({player,index})=>{
+      const memberships=playerMemberships(player.name);
+      const borrowed=memberships.length?` — ${memberships.map(teamDisplayName).join(", ")}`:" — fora dos times";
+      return `<option value="${index}">${escapeHtml(player.name)}${escapeHtml(borrowed)}</option>`;
+    }).join(""):'<option value="">Todos os jogadores já estão neste time</option>';
+    select.disabled=!candidates.length;
+  }
+  if(addButton)addButton.disabled=!candidates.length;
+
+  const members=[team.goalie,...team.line].filter(Boolean).sort((a,b)=>{
+    if(!!a.goalie!==!!b.goalie)return a.goalie?-1:1;
+    return comparePlayerNames(a,b);
+  });
+  if(roster){
+    roster.innerHTML=members.length?members.map(player=>`
+      <div class="team-editor-player">
+        <span>${player.goalie?"🧤":"⚽"} ${escapeHtml(player.name)}</span>
+        <button class="danger small-btn" onclick="removePlayerFromSpecificTeam(${activeTeamEditor},'${escapeJs(player.name)}')">Remover</button>
+      </div>`).join(""):'<div class="empty">Este time está vazio.</div>';
+  }
+}
+function addSelectedPlayerToTeam(){
+  if(activeTeamEditor===null||!lastDraw)return;
+  const playerIndex=Number(document.getElementById("teamEditorPlayerSelect")?.value);
   const player=state.players[playerIndex];
   if(!player)return;
-  const currentIndex=assignedTeamForPlayer(player.name);
-  if(currentIndex<0){renderTeamTools();return}
-  if(targetIndex===currentIndex){
-    alert("O jogador já está neste time.");
-    return;
+  if(!canAddPlayerToSpecificTeam(player,activeTeamEditor,true))return;
+  const copy={...player,goalie:!!player.goalie,phone:player.phone||""};
+  if(copy.goalie)lastDraw.teams[activeTeamEditor].goalie=copy;
+  else lastDraw.teams[activeTeamEditor].line.push(copy);
+  persistTeamEdit();
+}
+function removePlayerFromSpecificTeam(teamIndex,playerName){
+  ensureDrawTeams();
+  const team=lastDraw?.teams?.[teamIndex];
+  if(!team)return;
+  if(team.goalie?.name===playerName)team.goalie=null;
+  else{
+    const lineIndex=team.line.findIndex(p=>p.name===playerName);
+    if(lineIndex<0)return;
+    team.line.splice(lineIndex,1);
   }
-  if(targetIndex>=0&&!canPlacePlayerOnTeam(player,targetIndex,true))return;
-  const removed=removePlayerFromDraw(player.name);
-  if(!removed)return;
-  if(targetIndex>=0)addPlayerCopyToTeam(player,targetIndex);
-  persistTeamAdjustment();
+  persistTeamEdit();
+}
+function persistTeamEdit(){
+  saveCurrentDaySnapshot(currentDateKey());
+  renderTeams();
 }
 function clearTeams(){
   if(!lastDraw){
@@ -907,30 +963,40 @@ function clearTeams(){
   }
   if(!confirm("Limpar os times sorteados? Presenças, placar, ranking e eventos serão mantidos."))return;
   lastDraw=null;
+  activeTeamEditor=null;
   resetMatchRotation();
+  closeModal("teamEditorModal");
   saveCurrentDaySnapshot(currentDateKey());
   clearDraw();
   renderGame();
 }
 function clearDraw(){
-  for(let i=1;i<=4;i++)document.getElementById(`team${i}`).innerHTML='<div class="empty">Ainda não sorteado.</div>';
+  for(let i=0;i<4;i++){
+    const card=document.getElementById(`teamCard${i+1}`);
+    const title=document.getElementById(`teamTitle${i+1}`);
+    const editButton=document.getElementById(`teamEdit${i+1}`);
+    const body=document.getElementById(`team${i+1}`);
+    if(card)card.hidden=false;
+    if(title)title.textContent=`TIME ${i+1}`;
+    if(editButton)editButton.hidden=true;
+    if(body)body.innerHTML='<div class="empty">Ainda não sorteado.</div>';
+  }
   document.getElementById("drawMessage").textContent="";
-  const panel=document.getElementById("teamTools");
-  if(panel)panel.hidden=true;
+  updateTeamLabels();
 }
 function copyTeams(){
   if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  ensureDrawTeams();
   let txt=`⚽ TIMES — ${eventDateText()}\n\n`;
-  lastDraw.teams.forEach((team,i)=>{
-    const count=(team.goalie?1:0)+team.line.length;if(!count)return;
-    txt+=`TIME ${i+1}${i>=2?" — PRÓXIMO / BANCO":""}\n`;
+  lastDraw.teams.slice(0,configuredTeamCount()).forEach((team,i)=>{
+    const count=teamCount(team);if(!count)return;
+    txt+=`${teamDisplayName(i).toLocaleUpperCase("pt-BR")}${i>=2?" — PRÓXIMO / BANCO":""}\n`;
     if(team.goalie)txt+=`🧤 ${team.goalie.name}\n`;
-    team.line.forEach((p,n)=>txt+=`${n+1}. ${p.name}\n`);
+    [...team.line].sort(comparePlayerNames).forEach((p,n)=>txt+=`${n+1}. ${p.name}\n`);
     txt+="\n";
   });
   navigator.clipboard.writeText(txt.trim()).then(()=>alert("Times copiados."));
 }
-
 
 function loadDailyStore(){
   const raw=localStorage.getItem(DAILY_KEY);
@@ -1333,16 +1399,16 @@ function renderRotationInfo(){
   }
   if(!gameState.rotationStarted){
     const waiting=available.filter(i=>i!==gameState.teamA&&i!==gameState.teamB);
-    el.textContent=`1º jogo: quem perder sai; no empate, o Time 1 sai. Na fila: ${waiting.map(i=>`Time ${i+1}`).join(" → ")}.`;
+    el.textContent=`1º jogo: quem perder sai; no empate, ${teamDisplayName(0)} sai. Na fila: ${waiting.map(teamDisplayName).join(" → ")}.`;
     return;
   }
   const queue=reconciledWaitingTeams(available,[gameState.teamA,gameState.teamB]);
-  el.textContent=`Neste jogo, o Time ${gameState.residentTeam+1} sai ao final e o Time ${gameState.entrantTeam+1} permanece. Fila: ${queue.map(i=>`Time ${i+1}`).join(" → ")}.`;
+  el.textContent=`Neste jogo, ${teamDisplayName(gameState.residentTeam)} sai ao final e ${teamDisplayName(gameState.entrantTeam)} permanece. Fila: ${queue.map(teamDisplayName).join(" → ")}.`;
 }
 function teamPlayers(teamIndex){
   if(!lastDraw || !lastDraw.teams || !lastDraw.teams[teamIndex]) return [];
   const t=lastDraw.teams[teamIndex];
-  return [t.goalie,...t.line].filter(Boolean);
+  return [t.goalie,...[...t.line].sort(comparePlayerNames)].filter(Boolean);
 }
 function opponentGoalie(side){
   if(!lastDraw) return null;
@@ -1390,7 +1456,7 @@ function addGoal(side,name){
   if(!Array.isArray(gameState.history)) gameState.history=[];
   if(!Array.isArray(gameState.events)) gameState.events=[];
   gameState.history.push({type:"goal",side,name,goalie:gk?gk.name:null});
-  gameState.events.unshift(`⚽ ${name} — gol para Time ${side==="A"?gameState.teamA+1:gameState.teamB+1}`);
+  gameState.events.unshift(`⚽ ${name} — gol para ${teamDisplayName(side==="A"?gameState.teamA:gameState.teamB)}`);
 
   // A tela é atualizada primeiro; a nuvem vem depois.
   renderGame();
@@ -1437,7 +1503,7 @@ function undoLastEvent(){
 
 function renderRoster(side,teamIndex,targetId,titleId){
   const title=document.getElementById(titleId);
-  if(title) title.textContent=`Time ${teamIndex+1}`;
+  if(title) title.textContent=teamDisplayName(teamIndex);
   const target=document.getElementById(targetId);
   const players=teamPlayers(teamIndex);
   if(!target) return;
@@ -1468,6 +1534,7 @@ function renderSummary(){
 }
 function renderGame(){
   normalizeGameState();
+  updateTeamLabels();
   const a=document.getElementById("activeTeamA");
   const b=document.getElementById("activeTeamB");
   if(a)a.value=String(gameState.teamA);
