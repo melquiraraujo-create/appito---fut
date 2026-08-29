@@ -294,7 +294,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.7</div>
+    <div>Fut - Apitto Arena — V4.8</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -1005,8 +1005,9 @@ function renderTeams(){
     if(!total){el.innerHTML='<div class="empty">Sem jogadores neste time.</div>';continue}
     const complete=!!team.goalie&&team.line.length===6;
     const status=i>=2?"Próximo / banco":(complete?"Time completo":"Próximo / banco");
+    const teamLevel=teamAverageRating(team).toFixed(1).replace(".",",");
     const sortedLine=[...team.line].sort(comparePlayerNames);
-    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status} — ${total} jogador(es)</div><ul>
+    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status} — ${total} jogador(es) • ⭐ Nível ${teamLevel}</div><ul>
       ${team.goalie?`<li class="goalie">🧤 ${escapeHtml(team.goalie.name)}</li>`:""}
       ${sortedLine.map(p=>`<li>⚽ ${escapeHtml(p.name)}</li>`).join("")}
     </ul>`;
