@@ -88,7 +88,20 @@ textarea{min-height:86px;resize:vertical}
 
 .game-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .game-panel{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px}
-.timer{font-size:54px;font-weight:800;text-align:center;letter-spacing:2px;margin:10px 0}
+.timer{font-size:54px;font-weight:800;text-align:center;letter-spacing:2px;margin:10px 0 2px}
+.timer-edit-wrap{width:max-content;max-width:100%;margin:0 auto 10px;padding:0 20px 8px;border:1px solid transparent;border-radius:14px;cursor:pointer;transition:.2s}
+.timer-edit-wrap:hover,.timer-edit-wrap:focus{outline:none;border-color:var(--blue);background:rgba(45,140,255,.08)}
+.timer-edit-hint{text-align:center;color:var(--muted);font-size:12px}
+.duration-card{overflow:hidden}
+.duration-picker-shell{position:relative;max-width:250px;margin:0 auto}
+.duration-picker{height:250px;overflow-y:auto;scroll-snap-type:y mandatory;padding:96px 0;overscroll-behavior:contain;scrollbar-width:none}
+.duration-picker::-webkit-scrollbar{display:none}
+.duration-option{display:flex;align-items:baseline;justify-content:center;gap:7px;width:100%;height:58px;padding:0;scroll-snap-align:center;background:transparent;color:#718096;font-size:27px;font-weight:700;opacity:.42;transition:.15s}
+.duration-option small{font-size:13px}
+.duration-option.selected{color:#fff;font-size:43px;opacity:1;background:rgba(45,140,255,.22);border-radius:18px}
+.duration-center-line{position:absolute;z-index:2;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);border-top:1px solid rgba(102,239,174,.45);border-bottom:1px solid rgba(102,239,174,.45);pointer-events:none}
+.duration-selected-value{text-align:center;margin:8px 0 12px;color:#66efae;font-size:18px;font-weight:800}
+.duration-confirm{width:100%;padding:13px;font-size:17px}
 .score{font-size:42px;font-weight:800;text-align:center;margin:8px 0}
 .team-selects{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
 .active-roster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
@@ -196,7 +209,7 @@ textarea{min-height:86px;resize:vertical}
     <div class="section-head">
       <div>
         <h2>⏱️ Jogo</h2>
-        <div class="info">Cronômetro de 10 minutos, placar, gols, faltas, classificação e destaques do dia.</div>
+        <div class="info">Cronômetro ajustável, placar, gols, faltas, classificação e destaques do dia.</div>
       </div>
       <div class="controls">
         <button class="danger" onclick="requestResetEvents()">🗑 Zerar dia</button>
@@ -222,11 +235,14 @@ textarea{min-height:86px;resize:vertical}
       <div id="rotationInfo" class="rotation-info info"></div>
 
       <div class="score" id="scoreDisplay">0 × 0</div>
-      <div class="timer" id="timerDisplay">10:00</div>
+      <div class="timer-edit-wrap" onclick="openDurationPicker()" role="button" tabindex="0" aria-label="Editar duração do jogo" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDurationPicker()}">
+        <div class="timer" id="timerDisplay">10:00</div>
+        <div class="timer-edit-hint">↕ Toque para ajustar o tempo</div>
+      </div>
 
       <div class="controls" style="justify-content:center">
         <button class="green" id="timerButton" onclick="toggleTimer()">▶ Iniciar</button>
-        <button class="secondary" onclick="resetTimer()">↺ 10:00</button>
+        <button class="secondary" id="resetTimerButton" onclick="resetTimer()">↺ 10:00</button>
         <button class="orange" onclick="undoLastEvent()">↶ Desfazer último lance</button>
         <button onclick="nextMatch()">⏭ Próximo jogo</button>
       </div>
@@ -276,7 +292,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.3</div>
+    <div>Fut - Apitto Arena — V4.4</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -360,12 +376,26 @@ textarea{min-height:86px;resize:vertical}
   </div>
 </div>
 
+<!-- Duração do jogo -->
+<div id="durationModal" class="modal" onclick="backdropClose(event,'durationModal')" role="dialog" aria-modal="true" aria-labelledby="durationTitle">
+  <div class="modal-card modal-small duration-card">
+    <div class="modal-head"><h2 id="durationTitle">⏱️ Tempo do jogo</h2><button class="secondary" onclick="closeModal('durationModal')">✕</button></div>
+    <div class="info" style="text-align:center;margin-bottom:8px">Role para cima ou para baixo.</div>
+    <div class="duration-picker-shell">
+      <div class="duration-center-line"></div>
+      <div id="durationPicker" class="duration-picker" onscroll="handleDurationPickerScroll()"></div>
+    </div>
+    <div id="durationSelectedValue" class="duration-selected-value">10 min</div>
+    <button class="green duration-confirm" onclick="applySelectedDuration()">✓ Usar este tempo</button>
+  </div>
+</div>
+
 <!-- Fim do jogo -->
 <div id="endGameModal" class="modal end-game-modal" role="alertdialog" aria-modal="true" aria-labelledby="endGameTitle">
   <div class="modal-card modal-small end-game-card">
     <div class="end-game-icon">📣</div>
     <h2 id="endGameTitle">FIM DO JOGO!</h2>
-    <div class="end-game-time">10:00 encerrados</div>
+    <div class="end-game-time" id="endGameDuration">10:00 encerrados</div>
     <div class="info" style="margin:10px 0 18px">Ao confirmar, o próximo confronto será ativado automaticamente.</div>
     <button class="green end-game-ok" onclick="confirmEndGame()">OK — Próximo jogo</button>
   </div>
@@ -434,6 +464,8 @@ let gameState=loadGameState();
 let timerInterval=null;
 let pinMode="login";
 let activeTeamEditor=null;
+let selectedDurationMinutes=10;
+let durationScrollFrame=null;
 
 function normalizeMonthlyStatus(v){
   return v==="avulso" ? "avulso_pendente" : v;
@@ -599,7 +631,10 @@ function performResetEvents(){
 
   stopEndAlarm();
   closeModal("endGameModal");
+  const selectedDuration=currentDurationSeconds();
   gameState=freshGameState();
+  gameState.matchDuration=selectedDuration;
+  gameState.remaining=selectedDuration;
 
   if(timerInterval){
     clearInterval(timerInterval);
@@ -797,7 +832,7 @@ function resetMatchRotation(){
 function stopAndResetMatchClock(){
   gameState.scoreA=0;
   gameState.scoreB=0;
-  gameState.remaining=600;
+  gameState.remaining=currentDurationSeconds();
   gameState.running=false;
   gameState.endAt=null;
   if(timerInterval){clearInterval(timerInterval);timerInterval=null}
@@ -1100,6 +1135,7 @@ function loadDaySnapshot(dateKey){
 function freshGameState(){
   return {
     remaining:600,
+    matchDuration:600,
     running:false,
     endAt:null,
     teamA:0,
@@ -1203,6 +1239,7 @@ function loadGameState(){
   }
   return {
     remaining:600,
+    matchDuration:600,
     running:false,
     endAt:null,
     teamA:0,
@@ -1340,6 +1377,80 @@ function confirmEndGame(){
   nextMatch();
   setTimeout(()=>{endGameConfirming=false},1000);
 }
+function currentDurationSeconds(){
+  const raw=Number(gameState?.matchDuration);
+  if(!Number.isFinite(raw))return 600;
+  return Math.min(1800,Math.max(60,Math.round(raw/60)*60));
+}
+function currentDurationMinutes(){
+  return Math.round(currentDurationSeconds()/60);
+}
+function setDurationPickerSelection(minutes){
+  selectedDurationMinutes=Math.min(30,Math.max(1,Number(minutes)||10));
+  document.querySelectorAll(".duration-option").forEach(option=>{
+    const selected=Number(option.dataset.minutes)===selectedDurationMinutes;
+    option.classList.toggle("selected",selected);
+    option.setAttribute("aria-selected",selected?"true":"false");
+  });
+  const value=document.getElementById("durationSelectedValue");
+  if(value)value.textContent=`${selectedDurationMinutes} min`;
+}
+function scrollDurationTo(minutes,behavior){
+  const picker=document.getElementById("durationPicker");
+  const option=picker?.querySelector(`[data-minutes="${minutes}"]`);
+  if(!picker||!option)return;
+  const top=option.offsetTop-(picker.clientHeight-option.offsetHeight)/2;
+  picker.scrollTo({top,behavior:behavior||"auto"});
+  setDurationPickerSelection(minutes);
+}
+function openDurationPicker(){
+  normalizeGameState();
+  if(gameState.running){
+    alert("Pause o cronômetro antes de alterar o tempo.");
+    return;
+  }
+  selectedDurationMinutes=currentDurationMinutes();
+  const picker=document.getElementById("durationPicker");
+  if(!picker)return;
+  picker.innerHTML=Array.from({length:30},(_,index)=>{
+    const minutes=index+1;
+    return `<button type="button" class="duration-option" data-minutes="${minutes}" aria-selected="false" onclick="selectDurationMinutes(${minutes})"><span>${String(minutes).padStart(2,"0")}</span><small>min</small></button>`;
+  }).join("");
+  openModal("durationModal");
+  requestAnimationFrame(()=>requestAnimationFrame(()=>scrollDurationTo(selectedDurationMinutes,"auto")));
+}
+function selectDurationMinutes(minutes){
+  setDurationPickerSelection(minutes);
+  scrollDurationTo(selectedDurationMinutes,"smooth");
+}
+function handleDurationPickerScroll(){
+  if(durationScrollFrame)cancelAnimationFrame(durationScrollFrame);
+  durationScrollFrame=requestAnimationFrame(()=>{
+    const picker=document.getElementById("durationPicker");
+    if(!picker)return;
+    const center=picker.getBoundingClientRect().top+picker.clientHeight/2;
+    let closest=null;
+    let distance=Infinity;
+    picker.querySelectorAll(".duration-option").forEach(option=>{
+      const rect=option.getBoundingClientRect();
+      const current=Math.abs((rect.top+rect.height/2)-center);
+      if(current<distance){distance=current;closest=option}
+    });
+    if(closest)setDurationPickerSelection(Number(closest.dataset.minutes));
+  });
+}
+function applySelectedDuration(){
+  normalizeGameState();
+  const duration=Math.min(30,Math.max(1,selectedDurationMinutes))*60;
+  gameState.matchDuration=duration;
+  gameState.remaining=duration;
+  gameState.running=false;
+  gameState.endAt=null;
+  localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
+  saveCurrentDaySnapshot(currentDateKey());
+  closeModal("durationModal");
+  updateTimerDisplay();
+}
 function formatTime(sec){
   sec=Math.max(0,sec);
   const m=Math.floor(sec/60);
@@ -1358,6 +1469,11 @@ function updateTimerDisplay(){
   if(el) el.textContent=formatTime(remaining);
   const b=document.getElementById("timerButton");
   if(b) b.textContent=gameState.running?"⏸ Pausar":"▶ Iniciar";
+  const fullDuration=formatTime(currentDurationSeconds());
+  const reset=document.getElementById("resetTimerButton");
+  if(reset)reset.textContent=`↺ ${fullDuration}`;
+  const endDuration=document.getElementById("endGameDuration");
+  if(endDuration)endDuration.textContent=`${fullDuration} encerrados`;
 }
 function startTimerLoop(){
   if(timerInterval) clearInterval(timerInterval);
@@ -1388,7 +1504,7 @@ function toggleTimer(){
     gameState.endAt=null;
     if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
   }else{
-    if(!gameState.remaining || gameState.remaining<=0) gameState.remaining=600;
+    if(!gameState.remaining || gameState.remaining<=0) gameState.remaining=currentDurationSeconds();
     gameState.running=true;
     gameState.endAt=Date.now()+(gameState.remaining*1000);
   }
@@ -1400,7 +1516,7 @@ function toggleTimer(){
 function resetTimer(){
   stopEndAlarm();
   gameState.running=false;
-  gameState.remaining=600;
+  gameState.remaining=currentDurationSeconds();
   gameState.endAt=null;
   if(timerInterval){clearInterval(timerInterval);timerInterval=null}
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
@@ -1566,7 +1682,8 @@ function normalizeGameState(){
   if(!Array.isArray(gameState.events)) gameState.events=[];
   if(!Array.isArray(gameState.history)) gameState.history=[];
   if(!Array.isArray(gameState.matchResults)) gameState.matchResults=[];
-  if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=600; else gameState.remaining=Number(gameState.remaining);
+  gameState.matchDuration=currentDurationSeconds();
+  if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=gameState.matchDuration; else gameState.remaining=Number(gameState.remaining);
   if(!Number.isInteger(Number(gameState.teamA))) gameState.teamA=0; else gameState.teamA=Number(gameState.teamA);
   if(!Number.isInteger(Number(gameState.teamB))) gameState.teamB=1; else gameState.teamB=Number(gameState.teamB);
   gameState.rotationStarted=!!gameState.rotationStarted;
@@ -1809,7 +1926,10 @@ function renderGame(){
 }
 function resetDayStats(){
   if(!confirm("Zerar placar, cronômetro e ranking do dia?")) return;
+  const selectedDuration=currentDurationSeconds();
   gameState=freshGameState();
+  gameState.matchDuration=selectedDuration;
+  gameState.remaining=selectedDuration;
   if(timerInterval){clearInterval(timerInterval);timerInterval=null}
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));saveCurrentDaySnapshot(currentDateKey());renderGame();
 }
