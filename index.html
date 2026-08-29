@@ -59,6 +59,13 @@ textarea{min-height:86px;resize:vertical}
 .modal-small{width:min(100%,430px)}
 .modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
 .modal-head h2{margin:0}
+.end-game-modal{background:rgba(0,0,0,.86)}
+.end-game-card{text-align:center;border:2px solid var(--red);box-shadow:0 0 38px rgba(255,91,91,.28)}
+.end-game-icon{font-size:54px;animation:endPulse .7s ease-in-out infinite alternate}
+.end-game-card h2{margin:6px 0;color:#fff;font-size:34px;letter-spacing:.8px}
+.end-game-time{color:var(--red);font-size:22px;font-weight:800}
+.end-game-ok{width:100%;padding:14px;font-size:18px}
+@keyframes endPulse{from{transform:scale(.92)}to{transform:scale(1.08)}}
 .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
 .admin-card{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px}
 .admin-card h3{margin:0 0 10px}
@@ -269,7 +276,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.2</div>
+    <div>Fut - Apitto Arena — V4.3</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -350,6 +357,17 @@ textarea{min-height:86px;resize:vertical}
     <div class="controls" style="justify-content:flex-end;margin-top:14px">
       <button onclick="addPlayer()">➕ Novo jogador</button>
     </div>
+  </div>
+</div>
+
+<!-- Fim do jogo -->
+<div id="endGameModal" class="modal end-game-modal" role="alertdialog" aria-modal="true" aria-labelledby="endGameTitle">
+  <div class="modal-card modal-small end-game-card">
+    <div class="end-game-icon">📣</div>
+    <h2 id="endGameTitle">FIM DO JOGO!</h2>
+    <div class="end-game-time">10:00 encerrados</div>
+    <div class="info" style="margin:10px 0 18px">Ao confirmar, o próximo confronto será ativado automaticamente.</div>
+    <button class="green end-game-ok" onclick="confirmEndGame()">OK — Próximo jogo</button>
   </div>
 </div>
 
@@ -579,6 +597,8 @@ function requestResetEvents(){
 function performResetEvents(){
   if(!confirm("Zerar placar, cronômetro, ranking, campeonato e destaques do dia? A presença e os times não serão apagados.")) return;
 
+  stopEndAlarm();
+  closeModal("endGameModal");
   gameState=freshGameState();
 
   if(timerInterval){
@@ -1209,46 +1229,116 @@ function ensurePlayerStats(name){
   return gameState.stats[name];
 }
 let endAlarmAudioCtx=null;
+let endAlarmRepeatTimer=null;
+let endAlarmNodes=[];
+let endAlarmActive=false;
+let endGameConfirming=false;
 function unlockEndAlarm(){
   try{
     const AC=window.AudioContext||window.webkitAudioContext;
-    if(!AC) return;
-    if(!endAlarmAudioCtx) endAlarmAudioCtx=new AC();
-    if(endAlarmAudioCtx.state==="suspended") endAlarmAudioCtx.resume();
+    if(!AC)return;
+    if(!endAlarmAudioCtx)endAlarmAudioCtx=new AC();
+    if(endAlarmAudioCtx.state==="suspended")endAlarmAudioCtx.resume();
   }catch(e){}
+}
+function trackEndAlarmNode(node){
+  endAlarmNodes.push(node);
+  node.onended=()=>{
+    const index=endAlarmNodes.indexOf(node);
+    if(index>=0)endAlarmNodes.splice(index,1);
+    try{node.disconnect()}catch(e){}
+  };
+}
+function createWhistleBurst(start,duration,frequency){
+  const ctx=endAlarmAudioCtx;
+  if(!ctx)return;
+  const end=start+duration;
+  const compressor=ctx.createDynamicsCompressor();
+  compressor.threshold.setValueAtTime(-18,start);
+  compressor.knee.setValueAtTime(4,start);
+  compressor.ratio.setValueAtTime(12,start);
+  compressor.attack.setValueAtTime(0.002,start);
+  compressor.release.setValueAtTime(0.18,start);
+  compressor.connect(ctx.destination);
+
+  const master=ctx.createGain();
+  master.gain.setValueAtTime(0.0001,start);
+  master.gain.exponentialRampToValueAtTime(0.95,start+0.025);
+  master.gain.setValueAtTime(0.95,Math.max(start+0.03,end-0.05));
+  master.gain.exponentialRampToValueAtTime(0.0001,end);
+  master.connect(compressor);
+
+  const primary=ctx.createOscillator();
+  const primaryGain=ctx.createGain();
+  primary.type="square";
+  primary.frequency.setValueAtTime(frequency,start);
+  primaryGain.gain.setValueAtTime(0.58,start);
+  primary.connect(primaryGain);
+  primaryGain.connect(master);
+
+  const harmonic=ctx.createOscillator();
+  const harmonicGain=ctx.createGain();
+  harmonic.type="sine";
+  harmonic.frequency.setValueAtTime(frequency*1.48,start);
+  harmonicGain.gain.setValueAtTime(0.30,start);
+  harmonic.connect(harmonicGain);
+  harmonicGain.connect(master);
+
+  const vibrato=ctx.createOscillator();
+  const vibratoDepth=ctx.createGain();
+  vibrato.type="sine";
+  vibrato.frequency.setValueAtTime(17,start);
+  vibratoDepth.gain.setValueAtTime(75,start);
+  vibrato.connect(vibratoDepth);
+  vibratoDepth.connect(primary.frequency);
+  vibratoDepth.connect(harmonic.frequency);
+
+  [primary,harmonic,vibrato].forEach(source=>{
+    trackEndAlarmNode(source);
+    source.start(start);
+    source.stop(end+0.02);
+  });
+}
+function scheduleWhistlePattern(){
+  if(!endAlarmActive||!endAlarmAudioCtx)return;
+  const start=endAlarmAudioCtx.currentTime+0.03;
+  createWhistleBurst(start,0.68,2350);
+  createWhistleBurst(start+0.86,0.32,2650);
+  createWhistleBurst(start+1.34,0.95,2350);
 }
 function playEndAlarm(){
   try{
+    stopEndAlarm();
     unlockEndAlarm();
-    const ctx=endAlarmAudioCtx;
-    if(!ctx) return;
-    const now=ctx.currentTime;
-    const master=ctx.createGain();
-    master.gain.setValueAtTime(0.0001,now);
-    master.gain.exponentialRampToValueAtTime(0.55,now+0.03);
-    master.gain.setValueAtTime(0.55,now+4.7);
-    master.gain.exponentialRampToValueAtTime(0.0001,now+5.0);
-    master.connect(ctx.destination);
-
-    // Alarme forte em duas frequências alternadas, estilo sirene de emergência.
-    const steps=[
-      [0.00,880],[0.38,660],[0.76,880],[1.14,660],
-      [1.52,880],[1.90,660],[2.28,880],[2.66,660],
-      [3.04,990],[3.42,740],[3.80,990],[4.18,740]
-    ];
-    steps.forEach(([t,f],i)=>{
-      const o=ctx.createOscillator();
-      const g=ctx.createGain();
-      o.type="square";
-      o.frequency.setValueAtTime(f,now+t);
-      g.gain.setValueAtTime(0.0001,now+t);
-      g.gain.exponentialRampToValueAtTime(0.32,now+t+0.02);
-      g.gain.setValueAtTime(0.32,now+t+0.29);
-      g.gain.exponentialRampToValueAtTime(0.0001,now+t+0.36);
-      o.connect(g); g.connect(master);
-      o.start(now+t); o.stop(now+t+0.38);
-    });
-  }catch(e){console.warn("Alarme indisponível",e)}
+    if(!endAlarmAudioCtx)return;
+    endAlarmActive=true;
+    scheduleWhistlePattern();
+    endAlarmRepeatTimer=setInterval(scheduleWhistlePattern,2900);
+  }catch(e){console.warn("Apito indisponível",e)}
+}
+function stopEndAlarm(){
+  endAlarmActive=false;
+  if(endAlarmRepeatTimer){
+    clearInterval(endAlarmRepeatTimer);
+    endAlarmRepeatTimer=null;
+  }
+  endAlarmNodes.splice(0).forEach(node=>{
+    try{node.stop()}catch(e){}
+    try{node.disconnect()}catch(e){}
+  });
+}
+function showEndGameModal(){
+  endGameConfirming=false;
+  openModal("endGameModal");
+}
+function confirmEndGame(){
+  if(endGameConfirming)return;
+  endGameConfirming=true;
+  stopEndAlarm();
+  try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}
+  closeModal("endGameModal");
+  nextMatch();
+  setTimeout(()=>{endGameConfirming=false},1000);
 }
 function formatTime(sec){
   sec=Math.max(0,sec);
@@ -1285,8 +1375,8 @@ function startTimerLoop(){
       saveCurrentDaySnapshot(currentDateKey());
       updateTimerDisplay();
       playEndAlarm();
-      try{navigator.vibrate && navigator.vibrate([500,180,500,180,500,180,900])}catch(e){}
-      alert("🚨 FIM DO JOGO — 10 MINUTOS!");
+      showEndGameModal();
+      try{navigator.vibrate && navigator.vibrate([700,180,700,180,1100])}catch(e){}
     }
   },250);
 }
@@ -1308,6 +1398,7 @@ function toggleTimer(){
   startTimerLoop();
 }
 function resetTimer(){
+  stopEndAlarm();
   gameState.running=false;
   gameState.remaining=600;
   gameState.endAt=null;
