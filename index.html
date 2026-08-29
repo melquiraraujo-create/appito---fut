@@ -294,7 +294,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.9</div>
+    <div>Fut - Apitto Arena — V4.10</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -901,16 +901,16 @@ function confirmDrawTeams(){
   closeModal("colorsModal");
   drawTeams(colors);
 }
-function teamPlayers(team){
+function ratingPlayersInTeam(team){
   return [...(team?.goalie?[team.goalie]:[]),...(team?.line||[])];
 }
 function teamAverageRating(team){
-  const players=teamPlayers(team);
+  const players=ratingPlayersInTeam(team);
   if(!players.length)return 0;
   return players.reduce((sum,player)=>sum+normalizeRating(player.rating),0)/players.length;
 }
 function teamFiveStarCount(team){
-  return teamPlayers(team).filter(player=>normalizeRating(player.rating)===5).length;
+  return ratingPlayersInTeam(team).filter(player=>normalizeRating(player.rating)===5).length;
 }
 function fiveStarDuplicatePenalty(teams,teamCountToDraw){
   return teams.slice(0,teamCountToDraw).reduce((penalty,team)=>{
