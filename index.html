@@ -73,11 +73,13 @@ textarea{min-height:86px;resize:vertical}
 .online-dot{width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.12)}
 .online-status.online .online-dot{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
 .online-status.offline .online-dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
-.manage-table th:nth-child(1),.manage-table td:nth-child(1){width:22%}
-.manage-table th:nth-child(2),.manage-table td:nth-child(2){width:19%}
-.manage-table th:nth-child(3),.manage-table td:nth-child(3){width:16%}
-.manage-table th:nth-child(4),.manage-table td:nth-child(4){width:20%}
-.manage-table th:nth-child(5),.manage-table td:nth-child(5){width:23%;text-align:center}
+.manage-table th:nth-child(1),.manage-table td:nth-child(1){width:18%}
+.manage-table th:nth-child(2),.manage-table td:nth-child(2){width:16%}
+.manage-table th:nth-child(3),.manage-table td:nth-child(3){width:13%}
+.manage-table th:nth-child(4),.manage-table td:nth-child(4){width:13%;text-align:center}
+.manage-table th:nth-child(5),.manage-table td:nth-child(5){width:18%}
+.manage-table th:nth-child(6),.manage-table td:nth-child(6){width:22%;text-align:center}
+.rating-select{min-width:126px;color:#fbbf24;font-weight:800}
 .small-btn{padding:8px 9px;white-space:nowrap}
 .manage-actions{display:flex;justify-content:center;gap:6px;flex-wrap:nowrap}
 .public-table th:nth-child(1),.public-table td:nth-child(1){width:34%}
@@ -134,7 +136,7 @@ textarea{min-height:86px;resize:vertical}
   table{font-size:13px}th,td{padding:8px 5px}select{font-size:12px}button{padding:9px 11px}
   .admin-grid{grid-template-columns:1fr}
   .team-editor-add{grid-template-columns:1fr}
-  .manage-table{min-width:820px}
+  .manage-table{min-width:980px}
 }
 </style>
 </head>
@@ -292,7 +294,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.6</div>
+    <div>Fut - Apitto Arena — V4.7</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -379,10 +381,11 @@ textarea{min-height:86px;resize:vertical}
       </div>
     </div>
 
+    <div class="notice" style="margin-bottom:10px">⭐ O nível de 1 a 5 estrelas aparece somente nesta área e é usado para equilibrar os times no sorteio.</div>
     <div style="overflow-x:auto">
       <table class="manage-table">
         <thead>
-          <tr><th>Nome</th><th>WhatsApp</th><th>Tipo</th><th>Pagamento</th><th>Ações</th></tr>
+          <tr><th>Nome</th><th>WhatsApp</th><th>Tipo</th><th>Nível</th><th>Pagamento</th><th>Ações</th></tr>
         </thead>
         <tbody id="manageBody"></tbody>
       </table>
@@ -487,17 +490,28 @@ let durationScrollFrame=null;
 function normalizeMonthlyStatus(v){
   return v==="avulso" ? "avulso_pendente" : v;
 }
+function normalizeRating(v){
+  const number=Math.round(Number(v));
+  return Number.isFinite(number)?Math.min(5,Math.max(1,number)):3;
+}
+function normalizePlayer(p){
+  return {...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie,rating:normalizeRating(p.rating)};
+}
+function starLabel(v){
+  const rating=normalizeRating(v);
+  return "★".repeat(rating)+"☆".repeat(5-rating);
+}
 
 function loadState(){
   const raw=localStorage.getItem(STORAGE_KEY);
   if(raw){
     try{
       const s=JSON.parse(raw);
-      s.players=(s.players||[]).map(p=>({...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie}));
+      s.players=(s.players||[]).map(normalizePlayer);
       return s;
     }catch(e){}
   }
-  return {players:initialPlayers,eventDate:"",eventTime:"20:00 às 21:30",eventPlace:"Apitto Arena Alphaville"};
+  return {players:initialPlayers.map(normalizePlayer),eventDate:"",eventTime:"20:00 às 21:30",eventPlace:"Apitto Arena Alphaville"};
 }
 function loadAdmin(){
   const raw=localStorage.getItem(ADMIN_KEY);
@@ -561,6 +575,9 @@ function renderManage(){
         <option value="linha" ${!p.goalie?"selected":""}>⚽ Linha</option>
         <option value="goleiro" ${p.goalie?"selected":""}>🧤 Goleiro</option>
       </select></td>
+      <td><select class="rating-select" aria-label="Nível de ${escapeHtml(p.name)}" onchange="updateManaged(${i},'rating',Number(this.value))">
+        ${[1,2,3,4,5].map(level=>`<option value="${level}" ${normalizeRating(p.rating)===level?"selected":""}>${starLabel(level)}</option>`).join("")}
+      </select></td>
       <td><select onchange="updateManaged(${i},'monthly',this.value)">
         <option value="pago" ${p.monthly==="pago"?"selected":""}>🟢 Pago</option>
         <option value="pendente" ${p.monthly==="pendente"?"selected":""}>🔴 A pagar</option>
@@ -587,10 +604,11 @@ function updatePlayer(i,f,v){
 }
 function updateManaged(i,f,v){
   if(f==="phone")v=String(v).replace(/[^\d+]/g,"");
+  if(f==="rating")v=normalizeRating(v);
   state.players[i][f]=v;saveState();saveCurrentDaySnapshot(currentDateKey());renderPlayers();
 }
 function addPlayer(){
-  state.players.push({name:"Novo jogador",monthly:"pendente",presence:"pendente",goalie:false,phone:""});
+  state.players.push({name:"Novo jogador",monthly:"pendente",presence:"pendente",goalie:false,phone:"",rating:3});
   saveState();renderPlayers();renderManage();
 }
 function removePlayer(i){
@@ -883,19 +901,62 @@ function confirmDrawTeams(){
   closeModal("colorsModal");
   drawTeams(colors);
 }
+function teamAverageRating(team){
+  const players=[...(team?.goalie?[team.goalie]:[]),...(team?.line||[])];
+  if(!players.length)return 0;
+  return players.reduce((sum,player)=>sum+normalizeRating(player.rating),0)/players.length;
+}
+function balancedTeamsScore(teams,teamCountToDraw){
+  const averages=teams.slice(0,teamCountToDraw).filter(team=>teamCount(team)>0).map(teamAverageRating);
+  if(averages.length<2)return 0;
+  const range=Math.max(...averages)-Math.min(...averages);
+  const mean=averages.reduce((sum,value)=>sum+value,0)/averages.length;
+  const variance=averages.reduce((sum,value)=>sum+((value-mean)**2),0)/averages.length;
+  return range*100+Math.sqrt(variance);
+}
+function buildBalancedTeams(allGoalies,allLine,teamCountToDraw){
+  const selectedGoalies=shuffle(allGoalies).slice(0,Math.min(allGoalies.length,teamCountToDraw));
+  const totalLineSlots=Math.min(allLine.length,teamCountToDraw*6);
+  const selectedLine=shuffle(allLine).slice(0,totalLineSlots);
+  const lineCapacities=[];
+  let remaining=selectedLine.length;
+  for(let teamIndex=0;teamIndex<teamCountToDraw;teamIndex++){
+    const capacity=Math.min(6,remaining);
+    lineCapacities.push(capacity);
+    remaining-=capacity;
+  }
+
+  let bestTeams=null;
+  let bestScore=Infinity;
+  const attempts=Math.max(2500,Math.min(10000,2500+selectedLine.length*300));
+  for(let attempt=0;attempt<attempts;attempt++){
+    const candidate=Array.from({length:4},()=>({goalie:null,line:[]}));
+    const shuffledGoalies=shuffle(selectedGoalies);
+    const shuffledLine=shuffle(selectedLine);
+    shuffledGoalies.forEach((goalie,index)=>candidate[index].goalie=goalie);
+    let lineIndex=0;
+    for(let teamIndex=0;teamIndex<teamCountToDraw;teamIndex++){
+      const capacity=lineCapacities[teamIndex];
+      candidate[teamIndex].line=shuffledLine.slice(lineIndex,lineIndex+capacity);
+      lineIndex+=capacity;
+    }
+    const score=balancedTeamsScore(candidate,teamCountToDraw);
+    if(score<bestScore-0.000001||(Math.abs(score-bestScore)<0.000001&&Math.random()<0.025)){
+      bestScore=score;
+      bestTeams=candidate;
+      if(bestScore===0&&attempt>500)break;
+    }
+  }
+  return bestTeams||Array.from({length:4},()=>({goalie:null,line:[]}));
+}
 function drawTeams(teamNames){
   const names=Array.isArray(teamNames)?teamNames.map(x=>String(x).trim()).filter(Boolean):[];
   if(names.length<2){requestDrawTeams();return}
   const teamCountToDraw=Math.min(4,names.length);
-  const confirmed=state.players.filter(p=>p.presence==="confirmado");
-  const goalies=shuffle(confirmed.filter(p=>p.goalie));
-  const line=shuffle(confirmed.filter(p=>!p.goalie));
-  const teams=[{goalie:null,line:[]},{goalie:null,line:[]},{goalie:null,line:[]},{goalie:null,line:[]}];
-  for(let i=0;i<Math.min(goalies.length,teamCountToDraw);i++)teams[i].goalie=goalies[i];
-  let idx=0;
-  for(let t=0;t<teamCountToDraw&&idx<line.length;t++){
-    while(teams[t].line.length<6&&idx<line.length)teams[t].line.push(line[idx++]);
-  }
+  const confirmed=state.players.filter(p=>p.presence==="confirmado").map(normalizePlayer);
+  const goalies=confirmed.filter(p=>p.goalie);
+  const line=confirmed.filter(p=>!p.goalie);
+  const teams=buildBalancedTeams(goalies,line,teamCountToDraw);
   const fullNames=Array.from({length:4},(_,i)=>names[i]||`Time ${i+1}`);
   lastDraw={teams,teamNames:fullNames,teamCount:teamCountToDraw};
   activeTeamEditor=null;
@@ -908,8 +969,8 @@ function drawTeams(teamNames){
   const outside=Math.max(0,confirmed.length-distributed);
   renderTeams();
   document.getElementById("drawMessage").textContent=outside
-    ?`✅ ${distributed} distribuído(s); ${outside} ficou(aram) fora por falta de vaga.`
-    :`✅ ${distributed} jogador(es) distribuído(s).`;
+    ?`✅ Times equilibrados: ${distributed} distribuído(s); ${outside} ficou(aram) fora por falta de vaga.`
+    :`✅ ${distributed} jogador(es) distribuído(s) em times equilibrados.`;
   saveCurrentDaySnapshot(currentDateKey());
 }
 function updateTeamLabels(){
@@ -1973,9 +2034,10 @@ function setOnlineStatus(mode,text){
 function applyRemoteCore(remote){
   if(!remote)return;
   const migratedLegacyAvulso=Array.isArray(remote.players)&&remote.players.some(p=>p.monthly==="avulso");
+  const migratedLegacyRating=Array.isArray(remote.players)&&remote.players.some(p=>!Number.isFinite(Number(p.rating))||Number(p.rating)<1||Number(p.rating)>5);
   applyingRemote=true;
   try{
-    if(Array.isArray(remote.players)) state.players=remote.players.map(p=>({...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie}));
+    if(Array.isArray(remote.players)) state.players=remote.players.map(normalizePlayer);
     if(remote.eventDate!==undefined) state.eventDate=remote.eventDate||"";
     if(remote.eventTime!==undefined) state.eventTime=remote.eventTime||"20:00 às 21:30";
     if(remote.eventPlace!==undefined) state.eventPlace=remote.eventPlace||"Apitto Arena Alphaville";
@@ -1985,7 +2047,7 @@ function applyRemoteCore(remote){
     document.getElementById("eventPlace").value=state.eventPlace||"Apitto Arena Alphaville";
     renderPlayers();renderManage();
   }finally{applyingRemote=false;}
-  if(migratedLegacyAvulso) setTimeout(()=>onlinePushCore(),0);
+  if(migratedLegacyAvulso||migratedLegacyRating) setTimeout(()=>onlinePushCore(),0);
 }
 function applyRemoteDay(dateKey,snap){
   if(!dateKey||!snap)return;
