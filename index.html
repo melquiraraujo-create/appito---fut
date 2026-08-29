@@ -292,7 +292,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.4</div>
+    <div>Fut - Apitto Arena — V4.5</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -304,6 +304,23 @@ textarea{min-height:86px;resize:vertical}
     <div id="pinSetupText" class="info" style="margin-bottom:10px"></div>
     <input id="pinInput" class="text-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN">
     <button style="width:100%;margin-top:10px" onclick="submitPin()">Entrar</button>
+  </div>
+</div>
+
+<!-- Confirmação para zerar eventos -->
+<div id="resetEventsConfirmModal" class="modal" onclick="backdropClose(event,'resetEventsConfirmModal')" role="dialog" aria-modal="true" aria-labelledby="resetEventsConfirmTitle">
+  <div class="modal-card modal-small">
+    <div class="modal-head">
+      <h2 id="resetEventsConfirmTitle">🧹 Zerar eventos?</h2>
+      <button class="secondary" onclick="closeModal('resetEventsConfirmModal')">✕</button>
+    </div>
+    <div class="info" style="font-size:16px;line-height:1.5;margin:8px 0 18px">
+      Zerar placar, cronômetro, ranking, campeonato e destaques do dia? A presença e os times não serão apagados.
+    </div>
+    <div class="controls" style="justify-content:flex-end">
+      <button class="secondary" onclick="closeModal('resetEventsConfirmModal')">Cancelar</button>
+      <button class="danger" onclick="confirmResetEvents()">🧹 Zerar eventos</button>
+    </div>
   </div>
 </div>
 
@@ -627,8 +644,11 @@ function requestResetEvents(){
 }
 
 function performResetEvents(){
-  if(!confirm("Zerar placar, cronômetro, ranking, campeonato e destaques do dia? A presença e os times não serão apagados.")) return;
+  openModal("resetEventsConfirmModal");
+}
 
+function confirmResetEvents(){
+  closeModal("resetEventsConfirmModal");
   stopEndAlarm();
   closeModal("endGameModal");
   const selectedDuration=currentDurationSeconds();
@@ -644,7 +664,6 @@ function performResetEvents(){
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
   renderGame();
-  alert("Eventos zerados.");
 }
 
 function requestAdmin(){
