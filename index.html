@@ -43,6 +43,13 @@ textarea{min-height:86px;resize:vertical}
 .team{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:14px;min-height:170px}
 .team h3{margin:0 0 10px}.team ul{margin:0;padding-left:22px}.team li{margin:7px 0}
 .goalie{list-style:none;margin-left:-20px!important;font-weight:700}
+.team-tools{margin-top:14px;padding:14px;background:#101923;border:1px solid var(--line);border-radius:14px}
+.team-tools h3{margin:0 0 10px}
+.late-player-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(170px,230px) auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.late-player-row:last-child{border-bottom:none}
+.team-move-row{display:grid;grid-template-columns:1fr minmax(170px,230px) auto;gap:8px;align-items:center;margin-top:10px}
+.team-tools summary{cursor:pointer;color:#c8d6e5;font-weight:700}
+.rotation-info{margin:10px 0 0;padding:9px 11px;border:1px dashed #38506b;border-radius:10px;background:#101a25}
 .info{color:var(--muted);font-size:14px;line-height:1.5}.empty{color:var(--muted);padding:12px 0}
 .footer{color:var(--muted);text-align:center;font-size:12px;padding-bottom:20px}
 .pill{display:inline-block;border:1px solid var(--line);padding:4px 8px;border-radius:999px;color:var(--muted);font-size:12px}
@@ -96,6 +103,7 @@ textarea{min-height:86px;resize:vertical}
   .wrap{padding:12px}.title{gap:12px}.brand-mark{width:86px;height:91px;flex-basis:86px}.brand-mark img{width:91px;height:96px}.title h1{font-size:clamp(21px,5.8vw,27px);letter-spacing:-.8px}.title p{font-size:13px}
   table{font-size:13px}th,td{padding:8px 5px}select{font-size:12px}button{padding:9px 11px}
   .admin-grid{grid-template-columns:1fr}
+  .late-player-row,.team-move-row{grid-template-columns:1fr}
   .manage-table{min-width:820px}
 }
 </style>
@@ -149,7 +157,7 @@ textarea{min-height:86px;resize:vertical}
     <div class="section-head">
       <div>
         <h2>🎲 Sorteio de Times</h2>
-        <div class="info">Times 1 e 2 jogando. Times 3 e 4 ficam como próximo / banco.</div>
+        <div class="info">Times 1 e 2 começam jogando. Inclua atrasados em “Ajustar times” sem refazer o sorteio.</div>
       </div>
       <div class="controls">
         <button class="green" onclick="drawTeams()">🎲 Sortear</button>
@@ -163,6 +171,11 @@ textarea{min-height:86px;resize:vertical}
       <div class="team"><h3>TIME 2</h3><div id="team2" class="empty">Ainda não sorteado.</div></div>
       <div class="team"><h3>TIME 3</h3><div id="team3" class="empty">Ainda não sorteado.</div></div>
       <div class="team"><h3>TIME 4</h3><div id="team4" class="empty">Ainda não sorteado.</div></div>
+    </div>
+    <div id="teamTools" class="team-tools" hidden>
+      <h3>👥 Ajustar times</h3>
+      <div id="unassignedPlayers"></div>
+      <div id="assignedMoveControls" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -194,6 +207,7 @@ textarea{min-height:86px;resize:vertical}
           <option value="3">Time 4</option>
         </select>
       </div>
+      <div id="rotationInfo" class="rotation-info info"></div>
 
       <div class="score" id="scoreDisplay">0 × 0</div>
       <div class="timer" id="timerDisplay">10:00</div>
@@ -235,7 +249,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V3.9</div>
+    <div>Fut - Apitto Arena — V4.0</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -453,6 +467,7 @@ function updatePlayer(i,f,v){
   saveState();
   saveCurrentDaySnapshot(currentDateKey());
   renderPlayers();
+  if(lastDraw)renderTeams();
 }
 function updateManaged(i,f,v){
   if(f==="phone")v=String(v).replace(/[^\d+]/g,"");
@@ -658,7 +673,46 @@ function saveAdminSettingsSilent(){
   localStorage.setItem(ADMIN_KEY,JSON.stringify(admin));
 }
 
+function ensureDrawTeams(){
+  if(!lastDraw)return;
+  if(!Array.isArray(lastDraw.teams))lastDraw.teams=[];
+  while(lastDraw.teams.length<4)lastDraw.teams.push({goalie:null,line:[]});
+  lastDraw.teams=lastDraw.teams.slice(0,4).map(t=>({
+    goalie:t?.goalie||null,
+    line:Array.isArray(t?.line)?t.line:[]
+  }));
+}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function teamCount(team){
+  return (team?.goalie?1:0)+(Array.isArray(team?.line)?team.line.length:0);
+}
+function availableTeamIndexes(){
+  ensureDrawTeams();
+  if(!lastDraw)return [];
+  return lastDraw.teams.map((team,i)=>teamCount(team)>0?i:-1).filter(i=>i>=0);
+}
+function assignedTeamForPlayer(name){
+  ensureDrawTeams();
+  if(!lastDraw)return -1;
+  return lastDraw.teams.findIndex(team=>
+    team?.goalie?.name===name || (team?.line||[]).some(p=>p.name===name)
+  );
+}
+function resetMatchRotation(){
+  if(!gameState||typeof gameState!=="object")return;
+  gameState.rotationStarted=false;
+  gameState.waitingTeams=[];
+  gameState.residentTeam=null;
+  gameState.entrantTeam=null;
+}
+function stopAndResetMatchClock(){
+  gameState.scoreA=0;
+  gameState.scoreB=0;
+  gameState.remaining=600;
+  gameState.running=false;
+  gameState.endAt=null;
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null}
+}
 function drawTeams(){
   const confirmed=state.players.filter(p=>p.presence==="confirmado");
   const goalies=shuffle(confirmed.filter(p=>p.goalie));
@@ -668,24 +722,182 @@ function drawTeams(){
   let idx=0;
   for(let t=0;t<4&&idx<line.length;t++)while(teams[t].line.length<6&&idx<line.length)teams[t].line.push(line[idx++]);
   lastDraw={teams};
+  resetMatchRotation();
+  gameState.teamA=0;
+  gameState.teamB=1;
+  stopAndResetMatchClock();
+  localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   document.getElementById("drawMessage").textContent=`✅ ${confirmed.length} jogador(es) confirmado(s) distribuído(s).`;
   renderTeams();
   saveCurrentDaySnapshot(currentDateKey());
 }
 function renderTeams(){
-  clearDraw();if(!lastDraw)return;
+  clearDraw();
+  if(!lastDraw)return;
+  ensureDrawTeams();
   lastDraw.teams.forEach((team,i)=>{
     const el=document.getElementById(`team${i+1}`);
-    const count=(team.goalie?1:0)+team.line.length;
+    const count=teamCount(team);
     if(!count){el.innerHTML='<div class="empty">Sem jogadores neste time.</div>';return}
     const complete=!!team.goalie&&team.line.length===6;
     const status=i>=2?"Próximo / banco":(complete?"Time completo":"Próximo / banco");
-    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status}</div><ul>
+    el.innerHTML=`<div class="info" style="margin-bottom:8px">${status} — ${count} jogador(es)</div><ul>
       ${team.goalie?`<li class="goalie">🧤 ${escapeHtml(team.goalie.name)}</li>`:""}
       ${team.line.map(p=>`<li>⚽ ${escapeHtml(p.name)}</li>`).join("")}
     </ul>`;
   });
+  renderTeamTools();
   renderGame();
+}
+function teamTargetOptions(selected,includeOutside){
+  ensureDrawTeams();
+  let html=includeOutside?`<option value="-1" ${selected===-1?"selected":""}>Fora dos times</option>`:"";
+  html+=lastDraw.teams.map((team,i)=>
+    `<option value="${i}" ${selected===i?"selected":""}>Time ${i+1} (${teamCount(team)}/7)</option>`
+  ).join("");
+  return html;
+}
+function canPlacePlayerOnTeam(player,teamIndex,showAlert){
+  ensureDrawTeams();
+  const team=lastDraw?.teams?.[teamIndex];
+  if(!team){
+    if(showAlert)alert("Time inválido.");
+    return false;
+  }
+  if(player.goalie&&team.goalie){
+    if(showAlert)alert(`O Time ${teamIndex+1} já possui goleiro.`);
+    return false;
+  }
+  if(!player.goalie&&team.line.length>=6){
+    if(showAlert)alert(`O Time ${teamIndex+1} já possui 6 jogadores de linha.`);
+    return false;
+  }
+  return true;
+}
+function suggestedTeamIndex(player){
+  ensureDrawTeams();
+  if(!lastDraw)return 0;
+  const indexes=[0,1,2,3];
+  const ordered=[
+    ...indexes.filter(i=>teamCount(lastDraw.teams[i])>0),
+    ...indexes.filter(i=>teamCount(lastDraw.teams[i])===0)
+  ];
+  return ordered.find(i=>canPlacePlayerOnTeam(player,i,false)) ?? 0;
+}
+function renderTeamTools(){
+  const panel=document.getElementById("teamTools");
+  const unassignedBox=document.getElementById("unassignedPlayers");
+  const moveBox=document.getElementById("assignedMoveControls");
+  if(!panel||!unassignedBox||!moveBox)return;
+  if(!lastDraw){
+    panel.hidden=true;
+    return;
+  }
+  panel.hidden=false;
+  ensureDrawTeams();
+
+  const unassigned=state.players
+    .map((player,index)=>({player,index}))
+    .filter(({player})=>player.presence==="confirmado"&&assignedTeamForPlayer(player.name)<0);
+
+  if(unassigned.length){
+    unassignedBox.innerHTML=`
+      <div class="info" style="margin-bottom:8px">Jogadores que chegaram depois do sorteio:</div>
+      ${unassigned.map(({player,index})=>{
+        const suggested=suggestedTeamIndex(player);
+        return `<div class="late-player-row">
+          <div><strong>${escapeHtml(player.name)}</strong><div class="info">${player.goalie?"🧤 Goleiro":"⚽ Linha"}</div></div>
+          <select id="lateTarget-${index}">${teamTargetOptions(suggested,false)}</select>
+          <button class="green" onclick="addLatePlayerToTeam(${index})">➕ Adicionar</button>
+        </div>`;
+      }).join("")}`;
+  }else{
+    unassignedBox.innerHTML='<div class="info">Nenhum jogador presente está fora dos times.</div>';
+  }
+
+  const assigned=[];
+  lastDraw.teams.forEach((team,teamIndex)=>{
+    const players=[team.goalie,...team.line].filter(Boolean);
+    players.forEach(player=>{
+      const playerIndex=state.players.findIndex(p=>p.name===player.name);
+      if(playerIndex>=0)assigned.push({player,playerIndex,teamIndex});
+    });
+  });
+
+  moveBox.innerHTML=assigned.length?`
+    <details>
+      <summary>↔ Mover ou remover jogador</summary>
+      <div class="team-move-row">
+        <select id="assignedPlayerSelect">
+          ${assigned.map(x=>`<option value="${x.playerIndex}">${escapeHtml(x.player.name)} — Time ${x.teamIndex+1}</option>`).join("")}
+        </select>
+        <select id="assignedTargetSelect">${teamTargetOptions(-1,true)}</select>
+        <button class="secondary" onclick="moveAssignedPlayer()">Aplicar</button>
+      </div>
+    </details>`:"";
+}
+function addPlayerCopyToTeam(player,teamIndex){
+  const team=lastDraw.teams[teamIndex];
+  const copy={...player,goalie:!!player.goalie,phone:player.phone||""};
+  if(copy.goalie)team.goalie=copy;
+  else team.line.push(copy);
+}
+function removePlayerFromDraw(name){
+  ensureDrawTeams();
+  for(let i=0;i<lastDraw.teams.length;i++){
+    const team=lastDraw.teams[i];
+    if(team.goalie?.name===name){
+      const removed=team.goalie;
+      team.goalie=null;
+      return {player:removed,teamIndex:i};
+    }
+    const lineIndex=team.line.findIndex(p=>p.name===name);
+    if(lineIndex>=0){
+      const [removed]=team.line.splice(lineIndex,1);
+      return {player:removed,teamIndex:i};
+    }
+  }
+  return null;
+}
+function persistTeamAdjustment(){
+  saveCurrentDaySnapshot(currentDateKey());
+  renderTeams();
+}
+function addLatePlayerToTeam(playerIndex){
+  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  const player=state.players[playerIndex];
+  if(!player||player.presence!=="confirmado"){
+    alert("Marque o jogador como Presente antes de adicioná-lo.");
+    return;
+  }
+  if(assignedTeamForPlayer(player.name)>=0){
+    alert("Este jogador já está em um time.");
+    renderTeamTools();
+    return;
+  }
+  const select=document.getElementById(`lateTarget-${playerIndex}`);
+  const teamIndex=Number(select?.value);
+  if(!canPlacePlayerOnTeam(player,teamIndex,true))return;
+  addPlayerCopyToTeam(player,teamIndex);
+  persistTeamAdjustment();
+}
+function moveAssignedPlayer(){
+  if(!lastDraw)return;
+  const playerIndex=Number(document.getElementById("assignedPlayerSelect")?.value);
+  const targetIndex=Number(document.getElementById("assignedTargetSelect")?.value);
+  const player=state.players[playerIndex];
+  if(!player)return;
+  const currentIndex=assignedTeamForPlayer(player.name);
+  if(currentIndex<0){renderTeamTools();return}
+  if(targetIndex===currentIndex){
+    alert("O jogador já está neste time.");
+    return;
+  }
+  if(targetIndex>=0&&!canPlacePlayerOnTeam(player,targetIndex,true))return;
+  const removed=removePlayerFromDraw(player.name);
+  if(!removed)return;
+  if(targetIndex>=0)addPlayerCopyToTeam(player,targetIndex);
+  persistTeamAdjustment();
 }
 function clearTeams(){
   if(!lastDraw){
@@ -693,18 +905,19 @@ function clearTeams(){
     renderGame();
     return;
   }
-
-  if(!confirm("Limpar os times sorteados? Presenças, placar, ranking e eventos serão mantidos.")) return;
-
+  if(!confirm("Limpar os times sorteados? Presenças, placar, ranking e eventos serão mantidos."))return;
   lastDraw=null;
-
-  // Mantém os dados do jogo, mas tira os jogadores dos quadros dos times.
+  resetMatchRotation();
   saveCurrentDaySnapshot(currentDateKey());
   clearDraw();
   renderGame();
 }
-
-function clearDraw(){for(let i=1;i<=4;i++)document.getElementById(`team${i}`).innerHTML='<div class="empty">Ainda não sorteado.</div>';document.getElementById("drawMessage").textContent=""}
+function clearDraw(){
+  for(let i=1;i<=4;i++)document.getElementById(`team${i}`).innerHTML='<div class="empty">Ainda não sorteado.</div>';
+  document.getElementById("drawMessage").textContent="";
+  const panel=document.getElementById("teamTools");
+  if(panel)panel.hidden=true;
+}
 function copyTeams(){
   if(!lastDraw){alert("Faça o sorteio primeiro.");return}
   let txt=`⚽ TIMES — ${eventDateText()}\n\n`;
@@ -782,6 +995,10 @@ function freshGameState(){
     teamB:1,
     scoreA:0,
     scoreB:0,
+    rotationStarted:false,
+    waitingTeams:[],
+    residentTeam:null,
+    entrantTeam:null,
     stats:{},
     events:[],
     history:[]
@@ -880,6 +1097,10 @@ function loadGameState(){
     teamB:1,
     scoreA:0,
     scoreB:0,
+    rotationStarted:false,
+    waitingTeams:[],
+    residentTeam:null,
+    entrantTeam:null,
     stats:{},
     events:[],
     history:[]
@@ -1010,24 +1231,113 @@ function setActiveTeams(){
     document.getElementById("activeTeamB").value=String(gameState.teamB);
     return;
   }
-  gameState.teamA=a;gameState.teamB=b;
-  gameState.scoreA=0;gameState.scoreB=0;
+  gameState.teamA=a;
+  gameState.teamB=b;
+  gameState.scoreA=0;
+  gameState.scoreB=0;
+  resetMatchRotation();
   resetTimer();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
   renderGame();
 }
-function nextMatch(){
-  const sequence=[[0,1],[1,2],[2,3],[3,0]];
-  let idx=sequence.findIndex(x=>x[0]===gameState.teamA&&x[1]===gameState.teamB);
-  idx=(idx+1)%sequence.length;
-  gameState.teamA=sequence[idx][0];
-  gameState.teamB=sequence[idx][1];
-  gameState.scoreA=0;gameState.scoreB=0;
-  gameState.remaining=600;gameState.running=false;gameState.endAt=null;
+function reconciledWaitingTeams(available,activeTeams){
+  const activeSet=new Set(activeTeams);
+  const queue=[];
+  (gameState.waitingTeams||[]).forEach(teamIndex=>{
+    if(available.includes(teamIndex)&&!activeSet.has(teamIndex)&&!queue.includes(teamIndex))queue.push(teamIndex);
+  });
+  available.forEach(teamIndex=>{
+    if(!activeSet.has(teamIndex)&&!queue.includes(teamIndex))queue.push(teamIndex);
+  });
+  return queue;
+}
+function completeMatchTransition(staying,next,leaving,queue){
+  gameState.teamA=staying;
+  gameState.teamB=next;
+  gameState.residentTeam=staying;
+  gameState.entrantTeam=next;
+  gameState.waitingTeams=queue;
+  gameState.rotationStarted=true;
+  stopAndResetMatchClock();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
   renderGame();
+}
+function nextMatch(){
+  normalizeGameState();
+  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  const available=availableTeamIndexes();
+  const currentA=gameState.teamA;
+  const currentB=gameState.teamB;
+  if(available.length<3){
+    alert("É necessário ter pelo menos 3 times com jogadores para fazer a rotação.");
+    return;
+  }
+  if(!available.includes(currentA)||!available.includes(currentB)){
+    alert("Um dos times em campo está sem jogadores. Ajuste os times antes de continuar.");
+    return;
+  }
+
+  if(!gameState.rotationStarted){
+    let leaving;
+    let staying;
+    if(gameState.scoreA>gameState.scoreB){
+      staying=currentA;leaving=currentB;
+    }else if(gameState.scoreB>gameState.scoreA){
+      staying=currentB;leaving=currentA;
+    }else{
+      leaving=[currentA,currentB].includes(0)?0:currentA;
+      staying=leaving===currentA?currentB:currentA;
+    }
+    const queue=available.filter(i=>i!==currentA&&i!==currentB);
+    const next=queue.shift();
+    queue.push(leaving);
+    completeMatchTransition(staying,next,leaving,queue);
+    return;
+  }
+
+  const resident=gameState.residentTeam;
+  const entrant=gameState.entrantTeam;
+  if(![currentA,currentB].includes(resident)||![currentA,currentB].includes(entrant)){
+    resetMatchRotation();
+    alert("Os times em campo foram alterados manualmente. A rotação foi reiniciada; este jogo passa a ser o primeiro da nova sequência.");
+    renderGame();
+    saveCurrentDaySnapshot(currentDateKey());
+    return;
+  }
+  if(!available.includes(entrant)){
+    alert("O time que deveria permanecer está sem jogadores. Ajuste os times antes de continuar.");
+    return;
+  }
+  const queue=reconciledWaitingTeams(available,[currentA,currentB]);
+  const next=queue.shift();
+  if(next===undefined){
+    alert("Não há outro time disponível na fila.");
+    return;
+  }
+  if(available.includes(resident))queue.push(resident);
+  completeMatchTransition(entrant,next,resident,queue);
+}
+function renderRotationInfo(){
+  const el=document.getElementById("rotationInfo");
+  if(!el)return;
+  if(!lastDraw){
+    el.textContent="Faça o sorteio para iniciar a rotação.";
+    return;
+  }
+  const available=availableTeamIndexes();
+  if(available.length<3){
+    el.textContent="A rotação automática começa quando houver pelo menos 3 times com jogadores.";
+    return;
+  }
+  if(!gameState.rotationStarted){
+    const waiting=available.filter(i=>i!==gameState.teamA&&i!==gameState.teamB);
+    el.textContent=`1º jogo: quem perder sai; no empate, o Time 1 sai. Na fila: ${waiting.map(i=>`Time ${i+1}`).join(" → ")}.`;
+    return;
+  }
+  const queue=reconciledWaitingTeams(available,[gameState.teamA,gameState.teamB]);
+  el.textContent=`Neste jogo, o Time ${gameState.residentTeam+1} sai ao final e o Time ${gameState.entrantTeam+1} permanece. Fila: ${queue.map(i=>`Time ${i+1}`).join(" → ")}.`;
 }
 function teamPlayers(teamIndex){
   if(!lastDraw || !lastDraw.teams || !lastDraw.teams[teamIndex]) return [];
@@ -1054,6 +1364,11 @@ function normalizeGameState(){
   if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=600; else gameState.remaining=Number(gameState.remaining);
   if(!Number.isInteger(Number(gameState.teamA))) gameState.teamA=0; else gameState.teamA=Number(gameState.teamA);
   if(!Number.isInteger(Number(gameState.teamB))) gameState.teamB=1; else gameState.teamB=Number(gameState.teamB);
+  gameState.rotationStarted=!!gameState.rotationStarted;
+  if(!Array.isArray(gameState.waitingTeams))gameState.waitingTeams=[];
+  gameState.waitingTeams=gameState.waitingTeams.map(Number).filter(Number.isInteger);
+  gameState.residentTeam=(gameState.residentTeam===null||gameState.residentTeam===undefined||gameState.residentTeam==="")?null:(Number.isInteger(Number(gameState.residentTeam))?Number(gameState.residentTeam):null);
+  gameState.entrantTeam=(gameState.entrantTeam===null||gameState.entrantTeam===undefined||gameState.entrantTeam==="")?null:(Number.isInteger(Number(gameState.entrantTeam))?Number(gameState.entrantTeam):null);
   if(gameState.endAt===undefined) gameState.endAt=null;
   gameState.running=!!gameState.running;
 }
@@ -1159,6 +1474,7 @@ function renderGame(){
   if(b)b.value=String(gameState.teamB);
   const score=document.getElementById("scoreDisplay");
   if(score)score.textContent=`${gameState.scoreA} × ${gameState.scoreB}`;
+  renderRotationInfo();
   renderRoster("A",gameState.teamA,"rosterA","rosterTitleA");
   renderRoster("B",gameState.teamB,"rosterB","rosterTitleB");
   updateTimerDisplay();
