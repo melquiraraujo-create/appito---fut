@@ -94,6 +94,16 @@ textarea{min-height:86px;resize:vertical}
 .rank-table th:nth-child(2),.rank-table td:nth-child(2){width:18%;text-align:center}
 .rank-table th:nth-child(3),.rank-table td:nth-child(3){width:18%;text-align:center}
 .rank-table th:nth-child(4),.rank-table td:nth-child(4){width:22%;text-align:center}
+.standings-table{min-width:620px}
+.standings-table th,.standings-table td{padding:8px 5px;text-align:center}
+.standings-table th:nth-child(2),.standings-table td:nth-child(2){text-align:left;min-width:110px}
+.standing-leader{background:rgba(35,194,107,.10)}
+.highlights-panel{margin-top:12px}
+.highlight-list{display:grid;gap:0}
+.highlight-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.highlight-row:last-child{border-bottom:none}
+.highlight-row span{color:var(--muted)}
+.highlight-row strong{text-align:right}
 .badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#22364a;font-size:12px;color:#d7e6f5}
 
 @media(max-width:820px){
@@ -179,10 +189,10 @@ textarea{min-height:86px;resize:vertical}
     <div class="section-head">
       <div>
         <h2>⏱️ Jogo</h2>
-        <div class="info">Cronômetro de 10 minutos, placar, gols, faltas e ranking. Nada é apagado automaticamente ao trocar a data.</div>
+        <div class="info">Cronômetro de 10 minutos, placar, gols, faltas, classificação e destaques do dia.</div>
       </div>
       <div class="controls">
-        <button class="danger" onclick="requestResetEvents()">🗑 Zerar eventos</button>
+        <button class="danger" onclick="requestResetEvents()">🗑 Zerar dia</button>
       </div>
     </div>
 
@@ -237,14 +247,29 @@ textarea{min-height:86px;resize:vertical}
         </div>
       </div>
       <div class="game-panel">
-        <h3 style="margin-top:0">🧾 Resumo</h3>
-        <div id="daySummary" class="info">Nenhum evento registrado ainda.</div>
+        <h3 style="margin-top:0">🏆 Campeonato do dia</h3>
+        <div style="overflow-x:auto">
+          <table class="standings-table">
+            <thead><tr><th>#</th><th>Time</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Pts</th></tr></thead>
+            <tbody id="standingsBody"></tbody>
+          </table>
+        </div>
+        <div id="lastMatchInfo" class="info" style="margin-top:10px">O primeiro resultado será registrado ao tocar em Próximo jogo.</div>
+      </div>
+    </div>
+
+    <div class="game-panel highlights-panel">
+      <h3 style="margin-top:0">🌟 Destaques do dia</h3>
+      <div class="highlight-list">
+        <div class="highlight-row"><span>🏆 1º lugar</span><strong id="dayLeader">Aguardando o primeiro resultado.</strong></div>
+        <div class="highlight-row"><span>⚽ Artilheiro</span><strong id="dayTopScorer">Nenhum gol marcado.</strong></div>
+        <div class="highlight-row"><span>🧤 Goleiro menos vazado</span><strong id="dayBestGoalkeeper">Nenhum goleiro com jogo concluído.</strong></div>
       </div>
     </div>
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.1</div>
+    <div>Fut - Apitto Arena — V4.2</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -552,7 +577,7 @@ function requestResetEvents(){
 }
 
 function performResetEvents(){
-  if(!confirm("Zerar placar, cronômetro, ranking e lista de eventos? A presença e os times não serão apagados.")) return;
+  if(!confirm("Zerar placar, cronômetro, ranking, campeonato e destaques do dia? A presença e os times não serão apagados.")) return;
 
   gameState=freshGameState();
 
@@ -1067,7 +1092,8 @@ function freshGameState(){
     entrantTeam:null,
     stats:{},
     events:[],
-    history:[]
+    history:[],
+    matchResults:[]
   };
 }
 function monthKey(dateKey){
@@ -1169,7 +1195,8 @@ function loadGameState(){
     entrantTeam:null,
     stats:{},
     events:[],
-    history:[]
+    history:[],
+    matchResults:[]
   };
 }
 function saveGameState(){
@@ -1318,7 +1345,27 @@ function reconciledWaitingTeams(available,activeTeams){
   });
   return queue;
 }
+function recordCurrentMatchResult(){
+  normalizeGameState();
+  const teamA=gameState.teamA;
+  const teamB=gameState.teamB;
+  const rosterA=lastDraw?.teams?.[teamA];
+  const rosterB=lastDraw?.teams?.[teamB];
+  gameState.matchResults.push({
+    teamA,
+    teamB,
+    teamNameA:teamDisplayName(teamA),
+    teamNameB:teamDisplayName(teamB),
+    scoreA:Math.max(0,Number(gameState.scoreA)||0),
+    scoreB:Math.max(0,Number(gameState.scoreB)||0),
+    goalieA:rosterA?.goalie?.name||null,
+    goalieB:rosterB?.goalie?.name||null,
+    recordedAt:Date.now()
+  });
+}
 function completeMatchTransition(staying,next,leaving,queue){
+  recordCurrentMatchResult();
+  gameState.history=[];
   gameState.teamA=staying;
   gameState.teamB=next;
   gameState.residentTeam=staying;
@@ -1427,6 +1474,7 @@ function normalizeGameState(){
   if(!gameState.stats || typeof gameState.stats!=="object" || Array.isArray(gameState.stats)) gameState.stats={};
   if(!Array.isArray(gameState.events)) gameState.events=[];
   if(!Array.isArray(gameState.history)) gameState.history=[];
+  if(!Array.isArray(gameState.matchResults)) gameState.matchResults=[];
   if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=600; else gameState.remaining=Number(gameState.remaining);
   if(!Number.isInteger(Number(gameState.teamA))) gameState.teamA=0; else gameState.teamA=Number(gameState.teamA);
   if(!Number.isInteger(Number(gameState.teamB))) gameState.teamB=1; else gameState.teamB=Number(gameState.teamB);
@@ -1525,12 +1573,132 @@ function renderRanking(){
   body.innerHTML=rows.map(([name,s])=>`
     <tr><td>${escapeHtml(name)}</td><td>${s.goals}</td><td>${s.fouls}</td><td>${s.conceded}</td></tr>`).join("");
 }
-function renderSummary(){
+function calculateStandings(){
   normalizeGameState();
-  const el=document.getElementById("daySummary");
-  if(!el) return;
-  if(!gameState.events.length){el.textContent="Nenhum evento registrado ainda.";return}
-  el.innerHTML=gameState.events.slice(0,20).map(e=>`<div style="margin:6px 0">${escapeHtml(e)}</div>`).join("");
+  const results=gameState.matchResults;
+  let count=lastDraw?configuredTeamCount():0;
+  results.forEach(match=>{
+    count=Math.max(count,Number(match.teamA)+1,Number(match.teamB)+1);
+  });
+  const rows=Array.from({length:count},(_,teamIndex)=>({
+    teamIndex,
+    name:teamDisplayName(teamIndex),
+    played:0,
+    wins:0,
+    draws:0,
+    losses:0,
+    goalsFor:0,
+    goalsAgainst:0,
+    goalDifference:0,
+    points:0
+  }));
+  results.forEach(match=>{
+    const a=rows[Number(match.teamA)];
+    const b=rows[Number(match.teamB)];
+    if(!a||!b)return;
+    const scoreA=Math.max(0,Number(match.scoreA)||0);
+    const scoreB=Math.max(0,Number(match.scoreB)||0);
+    a.played++;b.played++;
+    a.goalsFor+=scoreA;a.goalsAgainst+=scoreB;
+    b.goalsFor+=scoreB;b.goalsAgainst+=scoreA;
+    if(scoreA>scoreB){
+      a.wins++;a.points+=3;b.losses++;
+    }else if(scoreB>scoreA){
+      b.wins++;b.points+=3;a.losses++;
+    }else{
+      a.draws++;b.draws++;a.points++;b.points++;
+    }
+  });
+  rows.forEach(row=>row.goalDifference=row.goalsFor-row.goalsAgainst);
+  return rows.sort((a,b)=>
+    (b.points-a.points)||
+    (b.wins-a.wins)||
+    (b.goalDifference-a.goalDifference)||
+    (b.goalsFor-a.goalsFor)||
+    a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})
+  );
+}
+function formatNames(names){
+  if(!names.length)return "—";
+  if(names.length===1)return names[0];
+  if(names.length===2)return `${names[0]} e ${names[1]}`;
+  return `${names.slice(0,-1).join(", ")} e ${names[names.length-1]}`;
+}
+function renderChampionship(){
+  normalizeGameState();
+  const body=document.getElementById("standingsBody");
+  const lastMatch=document.getElementById("lastMatchInfo");
+  const standings=calculateStandings();
+  if(body){
+    body.innerHTML=standings.length?standings.map((row,index)=>`
+      <tr class="${index===0&&gameState.matchResults.length?"standing-leader":""}">
+        <td>${index+1}º</td>
+        <td>${escapeHtml(row.name)}</td>
+        <td>${row.played}</td>
+        <td>${row.wins}</td>
+        <td>${row.draws}</td>
+        <td>${row.losses}</td>
+        <td>${row.goalsFor}</td>
+        <td>${row.goalsAgainst}</td>
+        <td>${row.goalDifference>0?"+":""}${row.goalDifference}</td>
+        <td><strong>${row.points}</strong></td>
+      </tr>`).join(""):'<tr><td colspan="10" class="info">Faça o sorteio para iniciar o campeonato.</td></tr>';
+  }
+  if(lastMatch){
+    const match=gameState.matchResults.at(-1);
+    lastMatch.textContent=match
+      ?`Último resultado: ${match.teamNameA||teamDisplayName(match.teamA)} ${match.scoreA} × ${match.scoreB} ${match.teamNameB||teamDisplayName(match.teamB)}`
+      :"O primeiro resultado será registrado ao tocar em Próximo jogo.";
+  }
+}
+function renderDayHighlights(){
+  normalizeGameState();
+  const leader=document.getElementById("dayLeader");
+  const scorer=document.getElementById("dayTopScorer");
+  const goalkeeper=document.getElementById("dayBestGoalkeeper");
+  const standings=calculateStandings();
+
+  if(leader){
+    leader.textContent=gameState.matchResults.length&&standings.length
+      ?`${standings[0].name} — ${standings[0].points} ponto(s)`
+      :"Aguardando o primeiro resultado.";
+  }
+
+  const playerStats=Object.entries(gameState.stats);
+  const maxGoals=playerStats.reduce((max,[,stats])=>Math.max(max,Number(stats.goals)||0),0);
+  if(scorer){
+    if(maxGoals>0){
+      const names=playerStats
+        .filter(([,stats])=>(Number(stats.goals)||0)===maxGoals)
+        .map(([name])=>name)
+        .sort((a,b)=>a.localeCompare(b,"pt-BR",{sensitivity:"base"}));
+      scorer.textContent=`${formatNames(names)} — ${maxGoals} gol${maxGoals===1?"":"s"}`;
+    }else scorer.textContent="Nenhum gol marcado.";
+  }
+
+  const eligibleGoalkeepers=new Set();
+  gameState.matchResults.forEach(match=>{
+    if(match.goalieA)eligibleGoalkeepers.add(match.goalieA);
+    if(match.goalieB)eligibleGoalkeepers.add(match.goalieB);
+  });
+  if(goalkeeper){
+    if(eligibleGoalkeepers.size){
+      const keepers=[...eligibleGoalkeepers].map(name=>({
+        name,
+        conceded:Number(gameState.stats[name]?.conceded)||0
+      }));
+      const minConceded=Math.min(...keepers.map(x=>x.conceded));
+      const names=keepers
+        .filter(x=>x.conceded===minConceded)
+        .map(x=>x.name)
+        .sort((a,b)=>a.localeCompare(b,"pt-BR",{sensitivity:"base"}));
+      goalkeeper.textContent=`${formatNames(names)} — ${minConceded} gol${minConceded===1?"":"s"} sofrido${minConceded===1?"":"s"}`;
+    }else goalkeeper.textContent="Nenhum goleiro com jogo concluído.";
+  }
+}
+function renderSummary(){
+  renderChampionship();
+  renderDayHighlights();
 }
 function renderGame(){
   normalizeGameState();
