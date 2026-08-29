@@ -294,7 +294,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.8</div>
+    <div>Fut - Apitto Arena — V4.9</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -901,18 +901,30 @@ function confirmDrawTeams(){
   closeModal("colorsModal");
   drawTeams(colors);
 }
+function teamPlayers(team){
+  return [...(team?.goalie?[team.goalie]:[]),...(team?.line||[])];
+}
 function teamAverageRating(team){
-  const players=[...(team?.goalie?[team.goalie]:[]),...(team?.line||[])];
+  const players=teamPlayers(team);
   if(!players.length)return 0;
   return players.reduce((sum,player)=>sum+normalizeRating(player.rating),0)/players.length;
 }
+function teamFiveStarCount(team){
+  return teamPlayers(team).filter(player=>normalizeRating(player.rating)===5).length;
+}
+function fiveStarDuplicatePenalty(teams,teamCountToDraw){
+  return teams.slice(0,teamCountToDraw).reduce((penalty,team)=>{
+    return penalty+Math.max(0,teamFiveStarCount(team)-1);
+  },0);
+}
 function balancedTeamsScore(teams,teamCountToDraw){
+  const duplicatePenalty=fiveStarDuplicatePenalty(teams,teamCountToDraw);
   const averages=teams.slice(0,teamCountToDraw).filter(team=>teamCount(team)>0).map(teamAverageRating);
-  if(averages.length<2)return 0;
+  if(averages.length<2)return duplicatePenalty*10000;
   const range=Math.max(...averages)-Math.min(...averages);
   const mean=averages.reduce((sum,value)=>sum+value,0)/averages.length;
   const variance=averages.reduce((sum,value)=>sum+((value-mean)**2),0)/averages.length;
-  return range*100+Math.sqrt(variance);
+  return duplicatePenalty*10000+range*100+Math.sqrt(variance);
 }
 function buildBalancedTeams(allGoalies,allLine,teamCountToDraw){
   const selectedGoalies=shuffle(allGoalies).slice(0,Math.min(allGoalies.length,teamCountToDraw));
@@ -932,14 +944,30 @@ function buildBalancedTeams(allGoalies,allLine,teamCountToDraw){
   for(let attempt=0;attempt<attempts;attempt++){
     const candidate=Array.from({length:4},()=>({goalie:null,line:[]}));
     const shuffledGoalies=shuffle(selectedGoalies);
-    const shuffledLine=shuffle(selectedLine);
     shuffledGoalies.forEach((goalie,index)=>candidate[index].goalie=goalie);
-    let lineIndex=0;
+
+    const fiveStarLine=shuffle(selectedLine.filter(player=>normalizeRating(player.rating)===5));
+    const otherLine=shuffle(selectedLine.filter(player=>normalizeRating(player.rating)!==5));
+
+    fiveStarLine.forEach(player=>{
+      const eligible=Array.from({length:teamCountToDraw},(_,index)=>index)
+        .filter(index=>candidate[index].line.length<lineCapacities[index]);
+      if(!eligible.length)return;
+      const lowestFiveCount=Math.min(...eligible.map(index=>teamFiveStarCount(candidate[index])));
+      const preferred=eligible.filter(index=>teamFiveStarCount(candidate[index])===lowestFiveCount);
+      const teamIndex=preferred[Math.floor(Math.random()*preferred.length)];
+      candidate[teamIndex].line.push(player);
+    });
+
+    const availableSlots=[];
     for(let teamIndex=0;teamIndex<teamCountToDraw;teamIndex++){
-      const capacity=lineCapacities[teamIndex];
-      candidate[teamIndex].line=shuffledLine.slice(lineIndex,lineIndex+capacity);
-      lineIndex+=capacity;
+      const open=lineCapacities[teamIndex]-candidate[teamIndex].line.length;
+      for(let slot=0;slot<open;slot++)availableSlots.push(teamIndex);
     }
+    shuffle(availableSlots).forEach((teamIndex,index)=>{
+      if(otherLine[index])candidate[teamIndex].line.push(otherLine[index]);
+    });
+
     const score=balancedTeamsScore(candidate,teamCountToDraw);
     if(score<bestScore-0.000001||(Math.abs(score-bestScore)<0.000001&&Math.random()<0.025)){
       bestScore=score;
