@@ -297,7 +297,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.13</div>
+    <div>Fut - Apitto Arena — V4.14</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -466,7 +466,7 @@ textarea{min-height:86px;resize:vertical}
         <select id="swapPlayerIn"></select>
       </label>
     </div>
-    <div class="info" style="margin-top:10px">Disponíveis: jogadores do próximo time e jogadores não confirmados. A formação original volta no próximo jogo.</div>
+    <div class="info" style="margin-top:10px">Disponíveis: jogadores do próximo time, não confirmados e confirmados que ficaram fora dos times. A formação original volta no próximo jogo.</div>
     <button class="green" style="width:100%;margin-top:14px" onclick="confirmPlayerSwap()">✓ Confirmar troca temporária</button>
   </div>
 </div>
@@ -1977,8 +1977,15 @@ function temporarySwapCandidates(currentPlayerName){
 
   sortedPlayerEntries()
     .map(({player})=>player)
-    .filter(player=>player.presence!=="confirmado")
-    .forEach(player=>addCandidate(player,player.presence==="nao"?"Não confirmado — Ausente":"Não confirmado — Pendente"));
+    .forEach(player=>{
+      if(player.presence!=="confirmado"){
+        addCandidate(player,player.presence==="nao"?"Não confirmado — Ausente":"Não confirmado — Pendente");
+        return;
+      }
+      if(playerMemberships(player.name).length===0){
+        addCandidate(player,"Confirmado — fora dos times");
+      }
+    });
 
   return candidates;
 }
@@ -2005,7 +2012,7 @@ function openTemporaryPlayerSwap(side,playerName){
 
   swapInCandidates=temporarySwapCandidates(currentPlayer.name);
   if(!swapInCandidates.length){
-    alert("Não há jogadores disponíveis no próximo time ou na lista de não confirmados.");
+    alert("Não há jogadores disponíveis no próximo time, fora dos times ou na lista de não confirmados.");
     return;
   }
 
