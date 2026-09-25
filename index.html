@@ -108,7 +108,11 @@ textarea{min-height:86px;resize:vertical}
 .team-selects{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
 .active-roster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .roster{background:#101923;border:1px solid var(--line);border-radius:12px;padding:10px}
-.roster h3{margin:0 0 10px}
+.roster h3{margin:0}
+.roster-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.roster-swap-btn{padding:7px 9px;white-space:nowrap;background:#30465e}
+.swap-player-grid{display:grid;gap:10px}
+.swap-player-grid label{display:grid;gap:6px}
 .player-action{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .player-action:last-child{border-bottom:none}
 .player-action button{padding:7px 9px}
@@ -251,11 +255,17 @@ textarea{min-height:86px;resize:vertical}
 
       <div class="active-roster">
         <div class="roster">
-          <h3 id="rosterTitleA">Time 1</h3>
+          <div class="roster-head">
+            <h3 id="rosterTitleA">Time 1</h3>
+            <button class="roster-swap-btn" onclick="openPlayerSwap('A')">🔄 Trocar jogador</button>
+          </div>
           <div id="rosterA" class="empty">Faça o sorteio primeiro.</div>
         </div>
         <div class="roster">
-          <h3 id="rosterTitleB">Time 2</h3>
+          <div class="roster-head">
+            <h3 id="rosterTitleB">Time 2</h3>
+            <button class="roster-swap-btn" onclick="openPlayerSwap('B')">🔄 Trocar jogador</button>
+          </div>
           <div id="rosterB" class="empty">Faça o sorteio primeiro.</div>
         </div>
       </div>
@@ -294,7 +304,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.11</div>
+    <div>Fut - Apitto Arena — V4.12</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -449,6 +459,28 @@ textarea{min-height:86px;resize:vertical}
   </div>
 </div>
 
+<!-- Troca de jogador durante a partida -->
+<div id="playerSwapModal" class="modal" onclick="backdropClose(event,'playerSwapModal')" role="dialog" aria-modal="true" aria-labelledby="playerSwapTitle">
+  <div class="modal-card modal-small">
+    <div class="modal-head">
+      <h2 id="playerSwapTitle">🔄 Trocar jogador</h2>
+      <button class="secondary" onclick="closeModal('playerSwapModal')">✕</button>
+    </div>
+    <div class="swap-player-grid">
+      <label>
+        <span class="info">Jogador que sai</span>
+        <select id="swapPlayerOut"></select>
+      </label>
+      <label>
+        <span class="info">Jogador que entra</span>
+        <select id="swapPlayerIn"></select>
+      </label>
+    </div>
+    <div class="info" style="margin-top:10px">A troca é apenas entre jogadores de linha. Os goleiros permanecem fixos.</div>
+    <button class="green" style="width:100%;margin-top:14px" onclick="confirmPlayerSwap()">✓ Confirmar troca</button>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY="apitto_fut_v1";
 const ADMIN_KEY="apitto_fut_admin_v15";
@@ -485,6 +517,9 @@ let timerInterval=null;
 let pinMode="login";
 let pendingPinAction=null;
 let activeTeamEditor=null;
+let activePlayerSwapSide=null;
+let swapOutCandidates=[];
+let swapInCandidates=[];
 let selectedDurationMinutes=10;
 let durationScrollFrame=null;
 
@@ -1897,6 +1932,67 @@ function undoLastEvent(){
   gameState.events.shift();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
+  renderGame();
+}
+
+function openPlayerSwap(side){
+  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  ensureDrawTeams();
+  const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
+  const team=lastDraw.teams?.[teamIndex];
+  if(!team){alert("Time inválido.");return}
+
+  swapOutCandidates=[...(team.line||[])].sort(comparePlayerNames);
+  swapInCandidates=sortedPlayerEntries()
+    .map(({player})=>player)
+    .filter(player=>player.presence==="confirmado"&&!player.goalie&&playerMemberships(player.name).length===0);
+
+  if(!swapOutCandidates.length){
+    alert("Este time não possui jogadores de linha para trocar.");
+    return;
+  }
+  if(!swapInCandidates.length){
+    alert("Não há jogador de linha presente e fora dos times para entrar.");
+    return;
+  }
+
+  activePlayerSwapSide=side;
+  document.getElementById("playerSwapTitle").textContent=`🔄 Trocar jogador — ${teamDisplayName(teamIndex)}`;
+  document.getElementById("swapPlayerOut").innerHTML=swapOutCandidates
+    .map((player,index)=>`<option value="${index}">${escapeHtml(player.name)}</option>`).join("");
+  document.getElementById("swapPlayerIn").innerHTML=swapInCandidates
+    .map((player,index)=>`<option value="${index}">${escapeHtml(player.name)}</option>`).join("");
+  openModal("playerSwapModal");
+}
+
+function confirmPlayerSwap(){
+  if(!lastDraw||!activePlayerSwapSide)return;
+  ensureDrawTeams();
+  const teamIndex=activePlayerSwapSide==="A"?gameState.teamA:gameState.teamB;
+  const team=lastDraw.teams?.[teamIndex];
+  const playerOut=swapOutCandidates[Number(document.getElementById("swapPlayerOut")?.value)];
+  const playerIn=swapInCandidates[Number(document.getElementById("swapPlayerIn")?.value)];
+  if(!team||!playerOut||!playerIn)return;
+
+  const outIndex=team.line.findIndex(player=>player.name===playerOut.name);
+  if(outIndex<0){
+    alert("O jogador que sairia não está mais neste time.");
+    closeModal("playerSwapModal");
+    return;
+  }
+  if(playerMemberships(playerIn.name).length){
+    alert("O jogador que entraria já foi colocado em um time.");
+    closeModal("playerSwapModal");
+    return;
+  }
+
+  team.line[outIndex]={...playerIn,goalie:false,phone:playerIn.phone||""};
+  activePlayerSwapSide=null;
+  swapOutCandidates=[];
+  swapInCandidates=[];
+  closeModal("playerSwapModal");
+  saveCurrentDaySnapshot(currentDateKey());
+  renderTeams();
   renderGame();
 }
 
