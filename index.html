@@ -108,14 +108,13 @@ textarea{min-height:86px;resize:vertical}
 .team-selects{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
 .active-roster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .roster{background:#101923;border:1px solid var(--line);border-radius:12px;padding:10px}
-.roster h3{margin:0}
-.roster-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
-.roster-swap-btn{padding:7px 9px;white-space:nowrap;background:#30465e}
+.roster h3{margin:0 0 10px}
 .swap-player-grid{display:grid;gap:10px}
 .swap-player-grid label{display:grid;gap:6px}
-.player-action{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.player-action{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .player-action:last-child{border-bottom:none}
 .player-action button{padding:7px 9px}
+.player-action .inline-swap-btn{background:#30465e}
 .rank-table th:nth-child(1),.rank-table td:nth-child(1){width:42%}
 .rank-table th:nth-child(2),.rank-table td:nth-child(2){width:18%;text-align:center}
 .rank-table th:nth-child(3),.rank-table td:nth-child(3){width:18%;text-align:center}
@@ -255,17 +254,11 @@ textarea{min-height:86px;resize:vertical}
 
       <div class="active-roster">
         <div class="roster">
-          <div class="roster-head">
-            <h3 id="rosterTitleA">Time 1</h3>
-            <button class="roster-swap-btn" onclick="openPlayerSwap('A')">🔄 Trocar jogador</button>
-          </div>
+          <h3 id="rosterTitleA">Time 1</h3>
           <div id="rosterA" class="empty">Faça o sorteio primeiro.</div>
         </div>
         <div class="roster">
-          <div class="roster-head">
-            <h3 id="rosterTitleB">Time 2</h3>
-            <button class="roster-swap-btn" onclick="openPlayerSwap('B')">🔄 Trocar jogador</button>
-          </div>
+          <h3 id="rosterTitleB">Time 2</h3>
           <div id="rosterB" class="empty">Faça o sorteio primeiro.</div>
         </div>
       </div>
@@ -304,7 +297,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.12</div>
+    <div>Fut - Apitto Arena — V4.13</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -459,25 +452,22 @@ textarea{min-height:86px;resize:vertical}
   </div>
 </div>
 
-<!-- Troca de jogador durante a partida -->
+<!-- Troca temporária de jogador durante a partida -->
 <div id="playerSwapModal" class="modal" onclick="backdropClose(event,'playerSwapModal')" role="dialog" aria-modal="true" aria-labelledby="playerSwapTitle">
   <div class="modal-card modal-small">
     <div class="modal-head">
       <h2 id="playerSwapTitle">🔄 Trocar jogador</h2>
       <button class="secondary" onclick="closeModal('playerSwapModal')">✕</button>
     </div>
+    <div id="playerSwapOutText" class="info" style="font-size:16px;margin-bottom:12px"></div>
     <div class="swap-player-grid">
       <label>
-        <span class="info">Jogador que sai</span>
-        <select id="swapPlayerOut"></select>
-      </label>
-      <label>
-        <span class="info">Jogador que entra</span>
+        <span class="info">Jogador que entra nesta partida</span>
         <select id="swapPlayerIn"></select>
       </label>
     </div>
-    <div class="info" style="margin-top:10px">A troca é apenas entre jogadores de linha. Os goleiros permanecem fixos.</div>
-    <button class="green" style="width:100%;margin-top:14px" onclick="confirmPlayerSwap()">✓ Confirmar troca</button>
+    <div class="info" style="margin-top:10px">Disponíveis: jogadores do próximo time e jogadores não confirmados. A formação original volta no próximo jogo.</div>
+    <button class="green" style="width:100%;margin-top:14px" onclick="confirmPlayerSwap()">✓ Confirmar troca temporária</button>
   </div>
 </div>
 
@@ -518,7 +508,7 @@ let pinMode="login";
 let pendingPinAction=null;
 let activeTeamEditor=null;
 let activePlayerSwapSide=null;
-let swapOutCandidates=[];
+let activePlayerSwapTarget=null;
 let swapInCandidates=[];
 let selectedDurationMinutes=10;
 let durationScrollFrame=null;
@@ -926,6 +916,7 @@ function resetMatchRotation(){
   gameState.waitingTeams=[];
   gameState.residentTeam=null;
   gameState.entrantTeam=null;
+  gameState.matchLineups={};
 }
 function stopAndResetMatchClock(){
   gameState.scoreA=0;
@@ -1325,7 +1316,8 @@ function freshGameState(){
     stats:{},
     events:[],
     history:[],
-    matchResults:[]
+    matchResults:[],
+    matchLineups:{}
   };
 }
 function monthKey(dateKey){
@@ -1439,7 +1431,8 @@ function loadGameState(){
     stats:{},
     events:[],
     history:[],
-    matchResults:[]
+    matchResults:[],
+    matchLineups:{}
   };
 }
 function saveGameState(){
@@ -1734,8 +1727,8 @@ function recordCurrentMatchResult(){
   normalizeGameState();
   const teamA=gameState.teamA;
   const teamB=gameState.teamB;
-  const rosterA=lastDraw?.teams?.[teamA];
-  const rosterB=lastDraw?.teams?.[teamB];
+  const rosterA=currentMatchLineup(teamA);
+  const rosterB=currentMatchLineup(teamB);
   gameState.matchResults.push({
     teamA,
     teamB,
@@ -1757,6 +1750,7 @@ function completeMatchTransition(staying,next,leaving,queue){
   gameState.entrantTeam=next;
   gameState.waitingTeams=queue;
   gameState.rotationStarted=true;
+  gameState.matchLineups={};
   stopAndResetMatchClock();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
@@ -1837,15 +1831,30 @@ function renderRotationInfo(){
   const queue=reconciledWaitingTeams(available,[gameState.teamA,gameState.teamB]);
   el.textContent=`Neste jogo, ${teamDisplayName(gameState.residentTeam)} sai ao final e ${teamDisplayName(gameState.entrantTeam)} permanece. Fila: ${queue.map(teamDisplayName).join(" → ")}.`;
 }
+function baseTeamLineup(teamIndex){
+  const team=lastDraw?.teams?.[teamIndex];
+  if(!team)return null;
+  return {
+    goalie:team.goalie?{...team.goalie,goalie:true}:null,
+    line:(team.line||[]).map(player=>({...player,goalie:false}))
+  };
+}
+function currentMatchLineup(teamIndex){
+  if(!lastDraw)return null;
+  if(!gameState.matchLineups || typeof gameState.matchLineups!=="object" || Array.isArray(gameState.matchLineups))gameState.matchLineups={};
+  const key=String(teamIndex);
+  if(!gameState.matchLineups[key])gameState.matchLineups[key]=baseTeamLineup(teamIndex);
+  return gameState.matchLineups[key];
+}
 function teamPlayers(teamIndex){
-  if(!lastDraw || !lastDraw.teams || !lastDraw.teams[teamIndex]) return [];
-  const t=lastDraw.teams[teamIndex];
-  return [t.goalie,...[...t.line].sort(comparePlayerNames)].filter(Boolean);
+  const lineup=currentMatchLineup(teamIndex);
+  if(!lineup)return [];
+  return [lineup.goalie,...[...(lineup.line||[])].sort(comparePlayerNames)].filter(Boolean);
 }
 function opponentGoalie(side){
-  if(!lastDraw) return null;
+  if(!lastDraw)return null;
   const idx=side==="A"?gameState.teamB:gameState.teamA;
-  return lastDraw.teams?.[idx]?.goalie || null;
+  return currentMatchLineup(idx)?.goalie||null;
 }
 function normalizeScore(){
   const a=Number(gameState?.scoreA), b=Number(gameState?.scoreB);
@@ -1860,6 +1869,7 @@ function normalizeGameState(){
   if(!Array.isArray(gameState.events)) gameState.events=[];
   if(!Array.isArray(gameState.history)) gameState.history=[];
   if(!Array.isArray(gameState.matchResults)) gameState.matchResults=[];
+  if(!gameState.matchLineups || typeof gameState.matchLineups!=="object" || Array.isArray(gameState.matchLineups)) gameState.matchLineups={};
   gameState.matchDuration=currentDurationSeconds();
   if(!Number.isFinite(Number(gameState.remaining))) gameState.remaining=gameState.matchDuration; else gameState.remaining=Number(gameState.remaining);
   if(!Number.isInteger(Number(gameState.teamA))) gameState.teamA=0; else gameState.teamA=Number(gameState.teamA);
@@ -1935,64 +1945,127 @@ function undoLastEvent(){
   renderGame();
 }
 
-function openPlayerSwap(side){
-  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
-  ensureDrawTeams();
-  const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
-  const team=lastDraw.teams?.[teamIndex];
-  if(!team){alert("Time inválido.");return}
+function nextWaitingTeamIndex(){
+  const available=availableTeamIndexes();
+  const active=[gameState.teamA,gameState.teamB];
+  const queue=gameState.rotationStarted
+    ?reconciledWaitingTeams(available,active)
+    :available.filter(teamIndex=>!active.includes(teamIndex));
+  return queue[0];
+}
+function temporarySwapCandidates(currentPlayerName){
+  const candidates=[];
+  const seen=new Set([currentPlayerName]);
+  const activeNames=new Set([
+    ...teamPlayers(gameState.teamA),
+    ...teamPlayers(gameState.teamB)
+  ].map(player=>player.name));
 
-  swapOutCandidates=[...(team.line||[])].sort(comparePlayerNames);
-  swapInCandidates=sortedPlayerEntries()
-    .map(({player})=>player)
-    .filter(player=>player.presence==="confirmado"&&!player.goalie&&playerMemberships(player.name).length===0);
-
-  if(!swapOutCandidates.length){
-    alert("Este time não possui jogadores de linha para trocar.");
-    return;
+  function addCandidate(player,source){
+    if(!player||seen.has(player.name)||activeNames.has(player.name))return;
+    seen.add(player.name);
+    candidates.push({player:{...player},source});
   }
+
+  const nextTeamIndex=nextWaitingTeamIndex();
+  const nextTeam=lastDraw?.teams?.[nextTeamIndex];
+  if(nextTeam){
+    [nextTeam.goalie,...[...(nextTeam.line||[])].sort(comparePlayerNames)]
+      .filter(Boolean)
+      .forEach(player=>addCandidate(player,`Próximo — ${teamDisplayName(nextTeamIndex)}`));
+  }
+
+  sortedPlayerEntries()
+    .map(({player})=>player)
+    .filter(player=>player.presence!=="confirmado")
+    .forEach(player=>addCandidate(player,player.presence==="nao"?"Não confirmado — Ausente":"Não confirmado — Pendente"));
+
+  return candidates;
+}
+function openTemporaryPlayerSwap(side,playerName){
+  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
+  const lineup=currentMatchLineup(teamIndex);
+  if(!lineup)return;
+
+  let role=null;
+  let index=-1;
+  let currentPlayer=null;
+  if(lineup.goalie?.name===playerName){
+    role="goalie";
+    currentPlayer=lineup.goalie;
+  }else{
+    index=(lineup.line||[]).findIndex(player=>player.name===playerName);
+    if(index>=0){
+      role="line";
+      currentPlayer=lineup.line[index];
+    }
+  }
+  if(!currentPlayer)return;
+
+  swapInCandidates=temporarySwapCandidates(currentPlayer.name);
   if(!swapInCandidates.length){
-    alert("Não há jogador de linha presente e fora dos times para entrar.");
+    alert("Não há jogadores disponíveis no próximo time ou na lista de não confirmados.");
     return;
   }
 
   activePlayerSwapSide=side;
-  document.getElementById("playerSwapTitle").textContent=`🔄 Trocar jogador — ${teamDisplayName(teamIndex)}`;
-  document.getElementById("swapPlayerOut").innerHTML=swapOutCandidates
-    .map((player,index)=>`<option value="${index}">${escapeHtml(player.name)}</option>`).join("");
+  activePlayerSwapTarget={teamIndex,role,index,playerName:currentPlayer.name};
+  document.getElementById("playerSwapTitle").textContent=`🔄 Troca temporária — ${teamDisplayName(teamIndex)}`;
+  document.getElementById("playerSwapOutText").textContent=`Sai: ${currentPlayer.goalie?"🧤":"⚽"} ${currentPlayer.name}`;
   document.getElementById("swapPlayerIn").innerHTML=swapInCandidates
-    .map((player,index)=>`<option value="${index}">${escapeHtml(player.name)}</option>`).join("");
+    .map((candidate,candidateIndex)=>`<option value="${candidateIndex}">${escapeHtml(candidate.player.name)} — ${escapeHtml(candidate.source)}</option>`)
+    .join("");
   openModal("playerSwapModal");
 }
-
 function confirmPlayerSwap(){
-  if(!lastDraw||!activePlayerSwapSide)return;
-  ensureDrawTeams();
-  const teamIndex=activePlayerSwapSide==="A"?gameState.teamA:gameState.teamB;
-  const team=lastDraw.teams?.[teamIndex];
-  const playerOut=swapOutCandidates[Number(document.getElementById("swapPlayerOut")?.value)];
-  const playerIn=swapInCandidates[Number(document.getElementById("swapPlayerIn")?.value)];
-  if(!team||!playerOut||!playerIn)return;
-
-  const outIndex=team.line.findIndex(player=>player.name===playerOut.name);
-  if(outIndex<0){
-    alert("O jogador que sairia não está mais neste time.");
-    closeModal("playerSwapModal");
-    return;
-  }
-  if(playerMemberships(playerIn.name).length){
-    alert("O jogador que entraria já foi colocado em um time.");
+  if(!lastDraw||!activePlayerSwapSide||!activePlayerSwapTarget)return;
+  const currentTeamIndex=activePlayerSwapSide==="A"?gameState.teamA:gameState.teamB;
+  if(currentTeamIndex!==activePlayerSwapTarget.teamIndex){
+    alert("O time em campo mudou. Abra a troca novamente.");
     closeModal("playerSwapModal");
     return;
   }
 
-  team.line[outIndex]={...playerIn,goalie:false,phone:playerIn.phone||""};
+  const lineup=currentMatchLineup(currentTeamIndex);
+  const candidate=swapInCandidates[Number(document.getElementById("swapPlayerIn")?.value)];
+  if(!lineup||!candidate)return;
+
+  const selectedPlayer=candidate.player;
+  const alreadyPlaying=[
+    ...teamPlayers(gameState.teamA),
+    ...teamPlayers(gameState.teamB)
+  ].some(player=>player.name===selectedPlayer.name);
+  if(alreadyPlaying){
+    alert("Esse jogador já está em campo.");
+    closeModal("playerSwapModal");
+    return;
+  }
+
+  const target=activePlayerSwapTarget;
+  if(target.role==="goalie"){
+    if(lineup.goalie?.name!==target.playerName){
+      alert("O goleiro em campo mudou. Abra a troca novamente.");
+      closeModal("playerSwapModal");
+      return;
+    }
+    lineup.goalie={...selectedPlayer,goalie:true,phone:selectedPlayer.phone||""};
+  }else{
+    if(!lineup.line?.[target.index]||lineup.line[target.index].name!==target.playerName){
+      alert("O jogador em campo mudou. Abra a troca novamente.");
+      closeModal("playerSwapModal");
+      return;
+    }
+    lineup.line[target.index]={...selectedPlayer,goalie:false,phone:selectedPlayer.phone||""};
+  }
+
+  gameState.matchLineups[String(currentTeamIndex)]=lineup;
   activePlayerSwapSide=null;
-  swapOutCandidates=[];
+  activePlayerSwapTarget=null;
   swapInCandidates=[];
   closeModal("playerSwapModal");
+  localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
   saveCurrentDaySnapshot(currentDateKey());
-  renderTeams();
   renderGame();
 }
 
@@ -2008,6 +2081,7 @@ function renderRoster(side,teamIndex,targetId,titleId){
       <span>${p.goalie?"🧤":"⚽"} ${escapeHtml(p.name)}</span>
       <button class="green" onclick="addGoal('${side}','${escapeJs(p.name)}')">+ Gol</button>
       <button class="orange" onclick="addFoul('${escapeJs(p.name)}')">Falta</button>
+      <button class="inline-swap-btn" title="Trocar ${escapeHtml(p.name)} somente nesta partida" aria-label="Trocar ${escapeHtml(p.name)}" onclick="openTemporaryPlayerSwap('${side}','${escapeJs(p.name)}')">🔄</button>
     </div>`).join("");
 }
 function renderRanking(){
