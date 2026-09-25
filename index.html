@@ -194,7 +194,7 @@ textarea{min-height:86px;resize:vertical}
       <div class="controls">
         <button class="green" onclick="requestDrawTeams()">🎲 Sortear</button>
         <button class="secondary" onclick="copyTeams()">📋 Copiar times</button>
-        <button class="danger" onclick="clearTeams()">🧹 Limpar times</button>
+        <button class="danger" onclick="requestClearTeams()">🧹 Limpar times</button>
       </div>
     </div>
     <div id="drawMessage" class="info"></div>
@@ -294,7 +294,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.10</div>
+    <div>Fut - Apitto Arena — V4.11</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -483,6 +483,7 @@ let lastDraw=null;
 let gameState=loadGameState();
 let timerInterval=null;
 let pinMode="login";
+let pendingPinAction=null;
 let activeTeamEditor=null;
 let selectedDurationMinutes=10;
 let durationScrollFrame=null;
@@ -647,6 +648,27 @@ function updateStats(){
   document.getElementById("statCasual").textContent=state.players.filter(p=>p.monthly==="avulso_pago"||p.monthly==="avulso_pendente").length;
 }
 
+function requestProtectedAction(action,description){
+  pendingPinAction=action;
+  if(!admin.pin){
+    pinMode="setupProtectedAction";
+    document.getElementById("pinTitle").textContent="🔐 Criar PIN do administrador";
+    document.getElementById("pinSetupText").textContent=`Crie um PIN para ${description}.`;
+  }else{
+    pinMode="protectedAction";
+    document.getElementById("pinTitle").textContent="🔒 Confirmar PIN";
+    document.getElementById("pinSetupText").textContent=`Digite o PIN do administrador para ${description}.`;
+  }
+  document.getElementById("pinInput").value="";
+  openModal("pinModal");
+}
+
+function runPendingProtectedAction(){
+  const action=pendingPinAction;
+  pendingPinAction=null;
+  if(typeof action==="function")action();
+}
+
 function requestResetEvents(){
   if(!admin.pin){
     pinMode="setupResetEvents";
@@ -695,13 +717,15 @@ function submitPin(){
   const pin=document.getElementById("pinInput").value.trim();
   if(pin.length<4){alert("Use pelo menos 4 dígitos.");return}
 
-  if(pinMode==="setup" || pinMode==="setupResetEvents"){
+  if(pinMode==="setup" || pinMode==="setupResetEvents" || pinMode==="setupProtectedAction"){
     admin.pin=pin;
     localStorage.setItem(ADMIN_KEY,JSON.stringify(admin));
     closeModal("pinModal");
 
     if(pinMode==="setupResetEvents"){
       performResetEvents();
+    }else if(pinMode==="setupProtectedAction"){
+      runPendingProtectedAction();
     }else{
       openAdmin();
     }
@@ -717,6 +741,8 @@ function submitPin(){
 
   if(pinMode==="resetEvents"){
     performResetEvents();
+  }else if(pinMode==="protectedAction"){
+    runPendingProtectedAction();
   }else{
     openAdmin();
   }
@@ -875,6 +901,9 @@ function stopAndResetMatchClock(){
   if(timerInterval){clearInterval(timerInterval);timerInterval=null}
 }
 function requestDrawTeams(){
+  requestProtectedAction(openDrawTeamsModal,"sortear os times");
+}
+function openDrawTeamsModal(){
   const previous=Array.isArray(lastDraw?.teamNames)?lastDraw.teamNames:[];
   for(let i=0;i<4;i++){
     const input=document.getElementById(`teamColor${i+1}`);
@@ -1144,6 +1173,9 @@ function persistTeamEdit(){
   saveCurrentDaySnapshot(currentDateKey());
   renderTeams();
 }
+function requestClearTeams(){
+  requestProtectedAction(clearTeams,"limpar os times");
+}
 function clearTeams(){
   if(!lastDraw){
     clearDraw();
@@ -1313,6 +1345,16 @@ function loadPaymentsForMonth(dateKey){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
   renderPlayers();
   updateStats();
+}
+function requestEventDateChange(newDate){
+  const input=document.getElementById("eventDate");
+  const oldDate=state.eventDate || "";
+  if(newDate===oldDate)return;
+  input.value=oldDate;
+  requestProtectedAction(()=>{
+    input.value=newDate;
+    handleEventDateChange(newDate);
+  },"alterar a data do próximo jogo");
 }
 function handleEventDateChange(newDate){
   const oldDate=state.eventDate || "";
@@ -2122,7 +2164,7 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":
 document.getElementById("eventDate").value=state.eventDate||"";
 document.getElementById("eventTime").value=state.eventTime||"20:00 às 21:30";
 document.getElementById("eventPlace").value=state.eventPlace||"Apitto Arena Alphaville";
-document.getElementById("eventDate").addEventListener("change",e=>handleEventDateChange(e.target.value));
+document.getElementById("eventDate").addEventListener("change",e=>requestEventDateChange(e.target.value));
 ["eventTime","eventPlace"].forEach(id=>document.getElementById(id).addEventListener("change",saveState));
 
 renderPlayers();
