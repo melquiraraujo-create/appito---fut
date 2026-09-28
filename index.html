@@ -82,6 +82,16 @@ textarea{min-height:86px;resize:vertical}
 .rating-select{min-width:126px;color:#fbbf24;font-weight:800}
 .small-btn{padding:8px 9px;white-space:nowrap}
 .manage-actions{display:flex;justify-content:center;gap:6px;flex-wrap:nowrap}
+.new-player-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.new-player-grid label{display:grid;gap:6px}
+.new-player-grid .full{grid-column:1/-1}
+.quarantine-card{margin-top:16px}
+.quarantine-table th:nth-child(1),.quarantine-table td:nth-child(1){width:24%}
+.quarantine-table th:nth-child(2),.quarantine-table td:nth-child(2){width:20%}
+.quarantine-table th:nth-child(3),.quarantine-table td:nth-child(3){width:14%}
+.quarantine-table th:nth-child(4),.quarantine-table td:nth-child(4){width:18%;text-align:center}
+.quarantine-table th:nth-child(5),.quarantine-table td:nth-child(5){width:24%;text-align:center}
+.quarantine-player{color:var(--muted)}
 .public-table th:nth-child(1),.public-table td:nth-child(1){width:34%}
 .public-table th:nth-child(2),.public-table td:nth-child(2){width:22%}
 .public-table th:nth-child(3),.public-table td:nth-child(3){width:32%}
@@ -139,7 +149,10 @@ textarea{min-height:86px;resize:vertical}
   table{font-size:13px}th,td{padding:8px 5px}select{font-size:12px}button{padding:9px 11px}
   .admin-grid{grid-template-columns:1fr}
   .team-editor-add{grid-template-columns:1fr}
+  .new-player-grid{grid-template-columns:1fr}
+  .new-player-grid .full{grid-column:auto}
   .manage-table{min-width:980px}
+  .quarantine-table{min-width:720px}
 }
 </style>
 </head>
@@ -297,7 +310,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.15</div>
+    <div>Fut - Apitto Arena — V4.16</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -377,7 +390,7 @@ textarea{min-height:86px;resize:vertical}
     <div class="section-head">
       <h2>Gerenciar jogadores</h2>
       <div class="controls">
-        <button onclick="addPlayer()">➕ Novo jogador</button>
+        <button onclick="openNewPlayerModal()">➕ Novo jogador</button>
         <button class="green" onclick="markAllPresent()">✅ Todos presentes</button>
         <button class="green" onclick="markAllPaid()">💰 Todos pagos</button>
         <button class="secondary" onclick="resetPresence()">↺ Limpar presença</button>
@@ -394,7 +407,88 @@ textarea{min-height:86px;resize:vertical}
       </table>
     </div>
     <div class="controls" style="justify-content:flex-end;margin-top:14px">
-      <button onclick="addPlayer()">➕ Novo jogador</button>
+      <button onclick="openNewPlayerModal()">➕ Novo jogador</button>
+    </div>
+
+    <div class="admin-card quarantine-card">
+      <div class="section-head">
+        <div>
+          <h3>🗃️ Quarentena</h3>
+          <div class="info">Jogadores inativos ficam fora da lista pública, presença, cobranças e sorteios, mas os dados continuam salvos.</div>
+        </div>
+        <span id="inactiveCount" class="pill">0 jogador(es)</span>
+      </div>
+      <div id="inactiveEmpty" class="empty">Nenhum jogador na quarentena.</div>
+      <div id="inactiveTableWrap" style="overflow-x:auto" hidden>
+        <table class="quarantine-table">
+          <thead>
+            <tr><th>Nome</th><th>WhatsApp</th><th>Tipo</th><th>Nível</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="inactiveBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cadastro de jogador -->
+<div id="newPlayerModal" class="modal" onclick="backdropClose(event,'newPlayerModal')" role="dialog" aria-modal="true" aria-labelledby="newPlayerTitle">
+  <div class="modal-card modal-small">
+    <div class="modal-head">
+      <div>
+        <h2 id="newPlayerTitle">➕ Novo jogador</h2>
+        <div class="info">Preencha os dados antes de adicionar à lista.</div>
+      </div>
+      <button class="secondary" onclick="closeModal('newPlayerModal')">✕</button>
+    </div>
+    <div class="new-player-grid">
+      <label class="full">
+        <span class="info">Nome</span>
+        <input id="newPlayerName" class="text-input" autocomplete="off" placeholder="Nome do jogador">
+      </label>
+      <label class="full">
+        <span class="info">WhatsApp</span>
+        <input id="newPlayerPhone" class="text-input" inputmode="tel" autocomplete="tel" placeholder="11999998888">
+      </label>
+      <label>
+        <span class="info">Tipo</span>
+        <select id="newPlayerType">
+          <option value="linha">⚽ Linha</option>
+          <option value="goleiro">🧤 Goleiro</option>
+        </select>
+      </label>
+      <label>
+        <span class="info">Nível</span>
+        <select id="newPlayerRating">
+          <option value="1">★☆☆☆☆</option>
+          <option value="2">★★☆☆☆</option>
+          <option value="3" selected>★★★☆☆</option>
+          <option value="4">★★★★☆</option>
+          <option value="5">★★★★★</option>
+        </select>
+      </label>
+      <label>
+        <span class="info">Pagamento</span>
+        <select id="newPlayerMonthly">
+          <option value="pendente" selected>🔴 A pagar</option>
+          <option value="pago">🟢 Pago</option>
+          <option value="isento">⚪ Isento</option>
+          <option value="avulso_pendente">🎟️ 🔴 Avulso a pagar</option>
+          <option value="avulso_pago">🎟️ 🟢 Avulso pago</option>
+        </select>
+      </label>
+      <label>
+        <span class="info">Presença</span>
+        <select id="newPlayerPresence">
+          <option value="pendente" selected>❓ Pendente</option>
+          <option value="confirmado">✅ Presente</option>
+          <option value="nao">❌ Ausente</option>
+        </select>
+      </label>
+    </div>
+    <div class="controls" style="justify-content:flex-end;margin-top:16px">
+      <button class="secondary" onclick="closeModal('newPlayerModal')">Cancelar</button>
+      <button class="green" onclick="saveNewPlayer()">✓ Salvar jogador</button>
     </div>
   </div>
 </div>
@@ -521,7 +615,7 @@ function normalizeRating(v){
   return Number.isFinite(number)?Math.min(5,Math.max(1,number)):3;
 }
 function normalizePlayer(p){
-  return {...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie,rating:normalizeRating(p.rating)};
+  return {...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie,rating:normalizeRating(p.rating),inactive:!!p.inactive};
 }
 function starLabel(v){
   const rating=normalizeRating(v);
@@ -573,7 +667,7 @@ function saveAdminSettings(){
 
 function renderPlayers(){
   const body=document.getElementById("playersBody");body.innerHTML="";
-  sortedPlayerEntries().forEach(({player:p,index:i},orderIndex)=>{
+  sortedActivePlayerEntries().forEach(({player:p,index:i},orderIndex)=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>${orderIndex+1}. ${escapeHtml(p.name)}</td>
@@ -592,7 +686,7 @@ function renderPlayers(){
 }
 function renderManage(){
   const body=document.getElementById("manageBody");body.innerHTML="";
-  sortedPlayerEntries().forEach(({player:p,index:i})=>{
+  sortedActivePlayerEntries().forEach(({player:p,index:i})=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td><input class="text-input" value="${escapeHtml(p.name)}" onchange="updateManaged(${i},'name',this.value)"></td>
@@ -615,11 +709,31 @@ function renderManage(){
         <div class="controls">
           <button class="orange small-btn" onclick="messagePaymentPlayer(${i})" title="Enviar cobrança individual">💰 Cobrar</button>
           <button class="green small-btn" onclick="messagePresencePlayer(${i})" title="Pedir confirmação de presença">✅ Presença</button>
-          <button class="danger small-btn" onclick="removePlayer(${i})" title="Excluir jogador">🗑</button>
+          <button class="secondary small-btn" onclick="quarantinePlayer(${i})" title="Mover para a quarentena">⏸ Quarentena</button>
         </div>
       </td>`;
     body.appendChild(tr);
   });
+  renderInactivePlayers();
+}
+function renderInactivePlayers(){
+  const body=document.getElementById("inactiveBody");
+  const count=document.getElementById("inactiveCount");
+  const empty=document.getElementById("inactiveEmpty");
+  const wrap=document.getElementById("inactiveTableWrap");
+  if(!body||!count||!empty||!wrap)return;
+  const entries=sortedInactivePlayerEntries();
+  count.textContent=`${entries.length} jogador(es)`;
+  empty.hidden=entries.length>0;
+  wrap.hidden=entries.length===0;
+  body.innerHTML=entries.map(({player:p,index:i})=>`
+    <tr class="quarantine-player">
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.phone||"—")}</td>
+      <td>${p.goalie?"🧤 Goleiro":"⚽ Linha"}</td>
+      <td>${starLabel(p.rating)}</td>
+      <td><button class="green small-btn" onclick="restorePlayer(${i})">↩ Reativar</button></td>
+    </tr>`).join("");
 }
 function updatePlayer(i,f,v){
   state.players[i][f]=v;
@@ -633,29 +747,90 @@ function updateManaged(i,f,v){
   if(f==="rating")v=normalizeRating(v);
   state.players[i][f]=v;saveState();saveCurrentDaySnapshot(currentDateKey());renderPlayers();
 }
-function addPlayer(){
-  state.players.push({name:"Novo jogador",monthly:"pendente",presence:"pendente",goalie:false,phone:"",rating:3});
-  saveState();renderPlayers();renderManage();
+function openNewPlayerModal(){
+  document.getElementById("newPlayerName").value="";
+  document.getElementById("newPlayerPhone").value="";
+  document.getElementById("newPlayerType").value="linha";
+  document.getElementById("newPlayerRating").value="3";
+  document.getElementById("newPlayerMonthly").value="pendente";
+  document.getElementById("newPlayerPresence").value="pendente";
+  openModal("newPlayerModal");
+  setTimeout(()=>document.getElementById("newPlayerName")?.focus(),0);
 }
-function removePlayer(i){
-  if(confirm(`Remover ${state.players[i].name}?`)){
-    state.players.splice(i,1);saveState();renderPlayers();renderManage();
+function saveNewPlayer(){
+  const name=document.getElementById("newPlayerName").value.replace(/\s+/g," ").trim();
+  if(!name){
+    alert("Informe o nome do jogador.");
+    document.getElementById("newPlayerName").focus();
+    return;
   }
+  const existing=state.players.find(player=>comparePlayerNames(player,{name})===0);
+  if(existing){
+    alert(existing.inactive
+      ?"Este jogador já está na quarentena. Use o botão Reativar."
+      :"Já existe um jogador cadastrado com este nome.");
+    return;
+  }
+  const player=normalizePlayer({
+    name,
+    phone:document.getElementById("newPlayerPhone").value.replace(/[^\d+]/g,""),
+    goalie:document.getElementById("newPlayerType").value==="goleiro",
+    rating:Number(document.getElementById("newPlayerRating").value),
+    monthly:document.getElementById("newPlayerMonthly").value,
+    presence:document.getElementById("newPlayerPresence").value,
+    inactive:false
+  });
+  state.players.push(player);
+  saveState();
+  saveCurrentDaySnapshot(currentDateKey());
+  renderPlayers();
+  renderManage();
+  closeModal("newPlayerModal");
+}
+function removePlayerFromDrawTeams(playerName){
+  if(!lastDraw)return;
+  ensureDrawTeams();
+  lastDraw.teams.forEach(team=>{
+    if(team.goalie?.name===playerName)team.goalie=null;
+    team.line=(team.line||[]).filter(player=>player.name!==playerName);
+  });
+}
+function quarantinePlayer(i){
+  const player=state.players[i];
+  if(!player||player.inactive)return;
+  if(!confirm(`Mover ${player.name} para a quarentena?\n\nEle ficará fora da lista pública, presença, cobranças e sorteios, mas todos os dados serão mantidos.`))return;
+  removePlayerFromDrawTeams(player.name);
+  player.inactive=true;
+  saveState();
+  saveCurrentDaySnapshot(currentDateKey());
+  renderPlayers();
+  renderManage();
+  if(lastDraw)renderTeams();else renderGame();
+}
+function restorePlayer(i){
+  const player=state.players[i];
+  if(!player||!player.inactive)return;
+  player.inactive=false;
+  player.presence="pendente";
+  saveState();
+  saveCurrentDaySnapshot(currentDateKey());
+  renderPlayers();
+  renderManage();
 }
 function markAllPresent(){
-  state.players.forEach(p=>p.presence="confirmado");
+  activePlayers().forEach(p=>p.presence="confirmado");
   saveState();renderPlayers();lastDraw=null;clearDraw();
   saveCurrentDaySnapshot(currentDateKey());
 }
 function resetPresence(){
   if(confirm("Limpar a presença de todos para a próxima sexta?")){
-    state.players.forEach(p=>p.presence="pendente");saveState();renderPlayers();lastDraw=null;clearDraw();
+    activePlayers().forEach(p=>p.presence="pendente");saveState();renderPlayers();lastDraw=null;clearDraw();
     saveCurrentDaySnapshot(currentDateKey());
   }
 }
 function markAllPaid(){
   if(confirm("Marcar como PAGOS todos os jogadores que estão A PAGAR? Isentos e avulsos serão mantidos.")){
-    state.players.forEach(p=>{
+    activePlayers().forEach(p=>{
       if(p.monthly==="pendente") p.monthly="pago";
     });
     saveState();
@@ -665,12 +840,13 @@ function markAllPaid(){
   }
 }
 function updateStats(){
-  document.getElementById("statPaid").textContent=state.players.filter(p=>p.monthly==="pago").length;
-  document.getElementById("statToPay").textContent=state.players.filter(p=>p.monthly==="pendente").length;
-  document.getElementById("statPresent").textContent=state.players.filter(p=>p.presence==="confirmado").length;
-  document.getElementById("statPresencePending").textContent=state.players.filter(p=>p.presence==="pendente").length;
-  document.getElementById("statAbsent").textContent=state.players.filter(p=>p.presence==="nao").length;
-  document.getElementById("statCasual").textContent=state.players.filter(p=>p.monthly==="avulso_pago"||p.monthly==="avulso_pendente").length;
+  const players=activePlayers();
+  document.getElementById("statPaid").textContent=players.filter(p=>p.monthly==="pago").length;
+  document.getElementById("statToPay").textContent=players.filter(p=>p.monthly==="pendente").length;
+  document.getElementById("statPresent").textContent=players.filter(p=>p.presence==="confirmado").length;
+  document.getElementById("statPresencePending").textContent=players.filter(p=>p.presence==="pendente").length;
+  document.getElementById("statAbsent").textContent=players.filter(p=>p.presence==="nao").length;
+  document.getElementById("statCasual").textContent=players.filter(p=>p.monthly==="avulso_pago"||p.monthly==="avulso_pendente").length;
 }
 
 function requestProtectedAction(action,description){
@@ -873,13 +1049,23 @@ function sortedPlayerEntries(){
     .map((player,index)=>({player,index}))
     .sort((a,b)=>comparePlayerNames(a.player,b.player));
 }
+function activePlayers(){
+  return state.players.filter(player=>!player.inactive);
+}
+function sortedActivePlayerEntries(){
+  return sortedPlayerEntries().filter(({player})=>!player.inactive);
+}
+function sortedInactivePlayerEntries(){
+  return sortedPlayerEntries().filter(({player})=>player.inactive);
+}
 function ensureDrawTeams(){
   if(!lastDraw)return;
   if(!Array.isArray(lastDraw.teams))lastDraw.teams=[];
   while(lastDraw.teams.length<4)lastDraw.teams.push({goalie:null,line:[]});
+  const inactiveNames=new Set(state.players.filter(player=>player.inactive).map(player=>player.name));
   lastDraw.teams=lastDraw.teams.slice(0,4).map(t=>({
-    goalie:t?.goalie||null,
-    line:Array.isArray(t?.line)?t.line:[]
+    goalie:t?.goalie&&!inactiveNames.has(t.goalie.name)?t.goalie:null,
+    line:(Array.isArray(t?.line)?t.line:[]).filter(player=>!inactiveNames.has(player.name))
   }));
   const inferred=lastDraw.teams.reduce((count,team,index)=>teamCount(team)>0?index+1:count,0);
   if(!Number.isInteger(lastDraw.teamCount)||lastDraw.teamCount<2||lastDraw.teamCount>4){
@@ -1035,7 +1221,7 @@ function drawTeams(teamNames){
   const names=Array.isArray(teamNames)?teamNames.map(x=>String(x).trim()).filter(Boolean):[];
   if(names.length<2){requestDrawTeams();return}
   const teamCountToDraw=Math.min(4,names.length);
-  const confirmed=state.players.filter(p=>p.presence==="confirmado").map(normalizePlayer);
+  const confirmed=activePlayers().filter(p=>p.presence==="confirmado").map(normalizePlayer);
   const goalies=confirmed.filter(p=>p.goalie);
   const line=confirmed.filter(p=>!p.goalie);
   const teams=buildBalancedTeams(goalies,line,teamCountToDraw);
@@ -1148,7 +1334,7 @@ function renderTeamEditor(){
   const roster=document.getElementById("teamEditorRoster");
   if(title)title.textContent=`Editar ${teamDisplayName(activeTeamEditor)}`;
 
-  const candidates=sortedPlayerEntries().filter(({player})=>!playerInTeam(team,player.name));
+  const candidates=sortedActivePlayerEntries().filter(({player})=>!playerInTeam(team,player.name));
   if(select){
     select.innerHTML=candidates.length?candidates.map(({player,index})=>{
       const memberships=playerMemberships(player.name);
@@ -1984,7 +2170,7 @@ function fixedSwapCandidates(currentPlayerName){
     });
   }
 
-  sortedPlayerEntries()
+  sortedActivePlayerEntries()
     .map(({player})=>player)
     .forEach(player=>{
       if(player.presence!=="confirmado"){
