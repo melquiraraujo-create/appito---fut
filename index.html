@@ -163,6 +163,12 @@ textarea{min-height:86px;resize:vertical}
   .team-editor-add{grid-template-columns:1fr}
   .new-player-grid{grid-template-columns:1fr}
   .new-player-grid .full{grid-column:auto}
+  .public-table.bbq-enabled th{font-size:11px}
+  .public-table.bbq-enabled th:nth-child(1),.public-table.bbq-enabled td:nth-child(1){width:27%}
+  .public-table.bbq-enabled th:nth-child(2),.public-table.bbq-enabled td:nth-child(2){width:18%}
+  .public-table.bbq-enabled th:nth-child(3),.public-table.bbq-enabled td:nth-child(3){width:27%}
+  .public-table.bbq-enabled th:nth-child(4),.public-table.bbq-enabled td:nth-child(4){width:19%;white-space:nowrap}
+  .public-table.bbq-enabled th:nth-child(5),.public-table.bbq-enabled td:nth-child(5){width:9%}
   .manage-table{min-width:980px}
   .quarantine-table{min-width:720px}
 }
@@ -323,7 +329,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.18</div>
+    <div>Fut - Apitto Arena — V4.19</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -2591,7 +2597,7 @@ startTimerLoop();
 
 <script type="module">
 // ============================================================
-// APITTO FUT V3.6 ONLINE — CONFIGURAÇÃO FIREBASE
+// APITTO FUT V3.7 ONLINE — CONFIGURAÇÃO FIREBASE
 // 1) Crie um projeto em https://console.firebase.google.com/
 // 2) Ative Realtime Database.
 // 3) Cadastre um Web App e cole abaixo os dados de firebaseConfig.
