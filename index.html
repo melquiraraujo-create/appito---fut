@@ -25,7 +25,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(
 .title p::before{width:20px;height:2px;border-radius:999px;background:linear-gradient(90deg,#66efae,#2d8cff);content:""}
 .event-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:280px}
 .event-box input{width:100%;margin-top:6px;background:#0d1620;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px}
-.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;text-align:center}
 .stat .n{font-size:28px;font-weight:700;margin-top:5px}
 .section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px}
@@ -92,10 +92,21 @@ textarea{min-height:86px;resize:vertical}
 .quarantine-table th:nth-child(4),.quarantine-table td:nth-child(4){width:18%;text-align:center}
 .quarantine-table th:nth-child(5),.quarantine-table td:nth-child(5){width:24%;text-align:center}
 .quarantine-player{color:var(--muted)}
-.public-table th:nth-child(1),.public-table td:nth-child(1){width:34%}
-.public-table th:nth-child(2),.public-table td:nth-child(2){width:22%}
-.public-table th:nth-child(3),.public-table td:nth-child(3){width:32%}
-.public-table th:nth-child(4),.public-table td:nth-child(4){width:12%;text-align:center}
+.public-table:not(.bbq-enabled) th:nth-child(1),.public-table:not(.bbq-enabled) td:nth-child(1){width:34%}
+.public-table:not(.bbq-enabled) th:nth-child(2),.public-table:not(.bbq-enabled) td:nth-child(2){width:22%}
+.public-table:not(.bbq-enabled) th:nth-child(3),.public-table:not(.bbq-enabled) td:nth-child(3){width:32%}
+.public-table:not(.bbq-enabled) th:nth-child(4),.public-table:not(.bbq-enabled) td:nth-child(4){width:12%;text-align:center}
+.public-table.bbq-enabled th:nth-child(1),.public-table.bbq-enabled td:nth-child(1){width:28%}
+.public-table.bbq-enabled th:nth-child(2),.public-table.bbq-enabled td:nth-child(2){width:20%}
+.public-table.bbq-enabled th:nth-child(3),.public-table.bbq-enabled td:nth-child(3){width:27%}
+.public-table.bbq-enabled th:nth-child(4),.public-table.bbq-enabled td:nth-child(4){width:15%;text-align:center}
+.public-table.bbq-enabled th:nth-child(5),.public-table.bbq-enabled td:nth-child(5){width:10%;text-align:center}
+.bbq-ticket{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.bbq-ticket span{font-size:18px;line-height:1}
+.bbq-ticket input{width:20px;height:20px;margin:0;accent-color:var(--orange);cursor:pointer}
+.bbq-ticket input:disabled{cursor:not-allowed;opacity:.45}
+.admin-bbq-toggle{display:flex;align-items:center;gap:9px;margin-top:12px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#101a25;color:var(--text);font-weight:700;cursor:pointer}
+.admin-bbq-toggle input{width:20px;height:20px;margin:0;accent-color:var(--green)}
 .notice{background:#101a25;border:1px dashed #38506b;border-radius:10px;padding:10px;color:#bdd0e2;font-size:13px;margin-bottom:12px}
 
 .game-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
@@ -143,6 +154,7 @@ textarea{min-height:86px;resize:vertical}
 
 @media(max-width:820px){
   .stats{grid-template-columns:repeat(2,1fr)}
+  .bbq-stat{grid-column:1/-1}
   .times{grid-template-columns:1fr}
   .game-grid,.active-roster{grid-template-columns:1fr}
   .wrap{padding:12px}.title{gap:12px}.brand-mark{width:86px;height:91px;flex-basis:86px}.brand-mark img{width:91px;height:96px}.title h1{font-size:clamp(21px,5.8vw,27px);letter-spacing:-.8px}.title p{font-size:13px}
@@ -183,19 +195,20 @@ textarea{min-height:86px;resize:vertical}
     <div class="stat"><div>❓ Pendentes</div><div class="n" id="statPresencePending">0</div></div>
     <div class="stat"><div>❌ Ausentes</div><div class="n" id="statAbsent">0</div></div>
     <div class="stat"><div>🎟️ Avulsos</div><div class="n" id="statCasual">0</div></div>
+    <div class="stat bbq-stat" id="statBbqCard" hidden><div>🍖 Churrasco</div><div class="n" id="statBbq">0</div></div>
   </div>
 
   <div class="section">
     <div class="section-head">
       <div>
         <h2>Jogadores</h2>
-        <div class="info">Cada jogador pode atualizar sua presença diretamente pelo link.</div>
+        <div class="info">Cada jogador pode atualizar sua presença e, quando habilitado, confirmar o churrasco.</div>
       </div>
       <button class="secondary" onclick="requestAdmin()">🔒 Administrador</button>
     </div>
     <div style="overflow-x:auto">
       <table class="public-table">
-        <thead><tr><th>Jogador</th><th>Status</th><th>Sexta</th><th>Tipo</th></tr></thead>
+        <thead><tr><th>Jogador</th><th>Status</th><th>Sexta</th><th id="bbqHeader" hidden>Churrasco</th><th>Tipo</th></tr></thead>
         <tbody id="playersBody"></tbody>
       </table>
     </div>
@@ -367,6 +380,10 @@ textarea{min-height:86px;resize:vertical}
         <input id="pixInput" class="text-input" placeholder="Chave PIX">
         <label class="info" style="display:block;margin-top:8px">Valor mensal</label>
         <input id="monthlyValueInput" class="text-input" placeholder="100,00">
+        <label class="admin-bbq-toggle">
+          <input id="bbqEnabledInput" type="checkbox">
+          <span>🍖 Lista churrasco</span>
+        </label>
         <button class="secondary" style="margin-top:10px" onclick="saveAdminSettings()">Salvar configurações</button>
       </div>
 
@@ -615,7 +632,7 @@ function normalizeRating(v){
   return Number.isFinite(number)?Math.min(5,Math.max(1,number)):3;
 }
 function normalizePlayer(p){
-  return {...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie,rating:normalizeRating(p.rating),inactive:!!p.inactive};
+  return {...p,monthly:normalizeMonthlyStatus(p.monthly),phone:p.phone||"",goalie:!!p.goalie,rating:normalizeRating(p.rating),inactive:!!p.inactive,bbq:!!p.bbq};
 }
 function starLabel(v){
   const rating=normalizeRating(v);
@@ -628,10 +645,11 @@ function loadState(){
     try{
       const s=JSON.parse(raw);
       s.players=(s.players||[]).map(normalizePlayer);
+      s.bbqEnabled=!!s.bbqEnabled;
       return s;
     }catch(e){}
   }
-  return {players:initialPlayers.map(normalizePlayer),eventDate:"",eventTime:"20:00 às 21:30",eventPlace:"Apitto Arena Alphaville"};
+  return {players:initialPlayers.map(normalizePlayer),eventDate:"",eventTime:"20:00 às 21:30",eventPlace:"Apitto Arena Alphaville",bbqEnabled:false};
 }
 function loadAdmin(){
   const raw=localStorage.getItem(ADMIN_KEY);
@@ -660,13 +678,21 @@ function saveAdminSettings(){
   admin.pix=document.getElementById("pixInput").value.trim();
   admin.monthlyValue=document.getElementById("monthlyValueInput").value.trim();
   admin.directTemplate=document.getElementById("directMessageTemplate").value;
+  state.bbqEnabled=!!document.getElementById("bbqEnabledInput")?.checked;
   localStorage.setItem(ADMIN_KEY,JSON.stringify(admin));
+  saveState();
+  saveCurrentDaySnapshot(currentDateKey());
+  renderPlayers();
   onlinePushAdminPublic();
   alert("Configurações salvas.");
 }
 
 function renderPlayers(){
   const body=document.getElementById("playersBody");body.innerHTML="";
+  const table=body.closest("table");
+  if(table)table.classList.toggle("bbq-enabled",!!state.bbqEnabled);
+  const bbqHeader=document.getElementById("bbqHeader");
+  if(bbqHeader)bbqHeader.hidden=!state.bbqEnabled;
   sortedActivePlayerEntries().forEach(({player:p,index:i},orderIndex)=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`
@@ -679,6 +705,12 @@ function renderPlayers(){
           <option value="nao" ${p.presence==="nao"?"selected":""}>❌ Ausente</option>
         </select>
       </td>
+      ${state.bbqEnabled?`<td>
+        <label class="bbq-ticket" title="${p.presence==="confirmado"?"Confirmar participação no churrasco":"Confirme a presença primeiro"}">
+          <span aria-hidden="true">🍖</span>
+          <input type="checkbox" aria-label="${escapeHtml(p.name)} vai ao churrasco" ${p.bbq?"checked":""} ${p.presence!=="confirmado"?"disabled":""} onchange="updatePlayer(${i},'bbq',this.checked)">
+        </label>
+      </td>`:""}
       <td class="player-type" title="${p.goalie?"Goleiro":"Linha"}">${p.goalie?"🧤":"⚽"}</td>`;
     body.appendChild(tr);
   });
@@ -736,7 +768,12 @@ function renderInactivePlayers(){
     </tr>`).join("");
 }
 function updatePlayer(i,f,v){
+  if(f==="bbq"){
+    v=!!v;
+    if(state.players[i].presence!=="confirmado")v=false;
+  }
   state.players[i][f]=v;
+  if(f==="presence" && v!=="confirmado")state.players[i].bbq=false;
   saveState();
   saveCurrentDaySnapshot(currentDateKey());
   renderPlayers();
@@ -801,6 +838,7 @@ function quarantinePlayer(i){
   if(!confirm(`Mover ${player.name} para a quarentena?\n\nEle ficará fora da lista pública, presença, cobranças e sorteios, mas todos os dados serão mantidos.`))return;
   removePlayerFromDrawTeams(player.name);
   player.inactive=true;
+  player.bbq=false;
   saveState();
   saveCurrentDaySnapshot(currentDateKey());
   renderPlayers();
@@ -812,6 +850,7 @@ function restorePlayer(i){
   if(!player||!player.inactive)return;
   player.inactive=false;
   player.presence="pendente";
+  player.bbq=false;
   saveState();
   saveCurrentDaySnapshot(currentDateKey());
   renderPlayers();
@@ -824,7 +863,7 @@ function markAllPresent(){
 }
 function resetPresence(){
   if(confirm("Limpar a presença de todos para a próxima sexta?")){
-    activePlayers().forEach(p=>p.presence="pendente");saveState();renderPlayers();lastDraw=null;clearDraw();
+    activePlayers().forEach(p=>{p.presence="pendente";p.bbq=false});saveState();renderPlayers();lastDraw=null;clearDraw();
     saveCurrentDaySnapshot(currentDateKey());
   }
 }
@@ -847,6 +886,10 @@ function updateStats(){
   document.getElementById("statPresencePending").textContent=players.filter(p=>p.presence==="pendente").length;
   document.getElementById("statAbsent").textContent=players.filter(p=>p.presence==="nao").length;
   document.getElementById("statCasual").textContent=players.filter(p=>p.monthly==="avulso_pago"||p.monthly==="avulso_pendente").length;
+  const bbqCard=document.getElementById("statBbqCard");
+  const bbqCount=document.getElementById("statBbq");
+  if(bbqCard)bbqCard.hidden=!state.bbqEnabled;
+  if(bbqCount)bbqCount.textContent=players.filter(p=>p.presence==="confirmado"&&p.bbq).length;
 }
 
 function requestProtectedAction(action,description){
@@ -953,6 +996,7 @@ function openAdmin(){
   document.getElementById("pixInput").value=admin.pix||"";
   document.getElementById("monthlyValueInput").value=admin.monthlyValue||"";
   document.getElementById("directMessageTemplate").value=admin.directTemplate||"";
+  document.getElementById("bbqEnabledInput").checked=!!state.bbqEnabled;
   openModal("adminModal");
 }
 function openModal(id){document.getElementById(id).classList.add("open");document.body.style.overflow="hidden"}
@@ -999,17 +1043,23 @@ function messagePaymentPlayer(i){
 }
 function messagePresencePlayer(i){
   const p=state.players[i];
+  const bbqText=state.bbqEnabled?`
+
+🍖 *Teremos churrasco!*
+
+Se for participar, marque também a opção do churrasco ao lado do seu nome:
+
+🍖✅`:"";
   const msg=`Olá, ${p.name}! Tudo bem?
 
 ⚽ *FUT DE SEXTA — CONFIRMAÇÃO*
 
-Você consegue confirmar sua presença para ${eventDateText()} pelo link:
+Você consegue confirmar sua presença para o dia *${eventDateText()}* diretamente pelo link:
+
 ${pageLink()}
 
 ✅ Presente
-❌ Ausente
-
-Assim conseguimos organizar os times antes do jogo.`;
+❌ Ausente${bbqText}`;
   openPlayerWhatsApp(i,msg);
 }
 function normalizeBRPhone(v){
@@ -1031,7 +1081,8 @@ function sharePaymentReminder(){
   shareText(text);
 }
 function sharePresenceReminder(){
-  const text=`⚽ *FUT DE SEXTA — CONFIRMAÇÃO*\n\nPessoal, atualizem a presença para ${eventDateText()} diretamente no link:\n${pageLink()}\n\n✅ Presente\n❌ Ausente\n\nAssim conseguimos organizar os times antes do jogo.`;
+  const bbqText=state.bbqEnabled?`\n\n🍖 *Teremos churrasco!*\n\nSe for participar, marque também a opção do churrasco ao lado do seu nome:\n\n🍖✅`:"";
+  const text=`⚽ *FUT DE SEXTA — CONFIRMAÇÃO*\n\nPessoal, atualizem a presença para o dia *${eventDateText()}* diretamente pelo link:\n\n${pageLink()}\n\n✅ Presente\n❌ Ausente${bbqText}`;
   shareText(text);
 }
 function saveAdminSettingsSilent(){
@@ -1446,6 +1497,8 @@ function saveCurrentDaySnapshot(dateKey){
   const store=loadDailyStore();
   store[dateKey]={
     presences:Object.fromEntries(state.players.map(p=>[p.name,p.presence])),
+    bbqEnabled:!!state.bbqEnabled,
+    bbqParticipants:Object.fromEntries(state.players.map(p=>[p.name,!!p.bbq])),
     gameState:JSON.parse(JSON.stringify(gameState)),
     lastDraw:lastDraw ? JSON.parse(JSON.stringify(lastDraw)) : null
   };
@@ -1458,8 +1511,10 @@ function loadDaySnapshot(dateKey){
   const snap=store[dateKey];
 
   if(snap){
+    state.bbqEnabled=!!snap.bbqEnabled;
     state.players.forEach(p=>{
       p.presence=snap.presences?.[p.name] || "pendente";
+      p.bbq=!!snap.bbqParticipants?.[p.name] && p.presence==="confirmado";
     });
     gameState=snap.gameState || freshGameState();
     normalizeGameState();
@@ -1469,7 +1524,8 @@ function loadDaySnapshot(dateKey){
     }
     lastDraw=snap.lastDraw || null;
   }else{
-    state.players.forEach(p=>p.presence="pendente");
+    state.bbqEnabled=false;
+    state.players.forEach(p=>{p.presence="pendente";p.bbq=false});
     gameState=freshGameState();
     gameState.events=[];
     gameState.history=[];
@@ -1589,6 +1645,8 @@ function handleEventDateChange(newDate){
   if(store[newDate]){
     loadDaySnapshot(newDate);
   }else{
+    state.bbqEnabled=false;
+    state.players.forEach(p=>p.bbq=false);
     saveState();
     renderPlayers();
     renderGame();
@@ -2458,6 +2516,7 @@ function applyRemoteCore(remote){
   applyingRemote=true;
   try{
     if(Array.isArray(remote.players)) state.players=remote.players.map(normalizePlayer);
+    if(remote.bbqEnabled!==undefined) state.bbqEnabled=!!remote.bbqEnabled;
     if(remote.eventDate!==undefined) state.eventDate=remote.eventDate||"";
     if(remote.eventTime!==undefined) state.eventTime=remote.eventTime||"20:00 às 21:30";
     if(remote.eventPlace!==undefined) state.eventPlace=remote.eventPlace||"Apitto Arena Alphaville";
@@ -2477,7 +2536,11 @@ function applyRemoteDay(dateKey,snap){
   if(dateKey!==currentDateKey())return;
   applyingRemote=true;
   try{
-    state.players.forEach(p=>p.presence=snap.presences?.[p.name]||"pendente");
+    state.bbqEnabled=!!snap.bbqEnabled;
+    state.players.forEach(p=>{
+      p.presence=snap.presences?.[p.name]||"pendente";
+      p.bbq=!!snap.bbqParticipants?.[p.name]&&p.presence==="confirmado";
+    });
     gameState=snap.gameState||freshGameState();
     normalizeGameState();
     if(gameState.running && gameState.endAt){
@@ -2532,7 +2595,7 @@ startTimerLoop();
 
 <script type="module">
 // ============================================================
-// APITTO FUT V3.4 ONLINE — CONFIGURAÇÃO FIREBASE
+// APITTO FUT V3.5 ONLINE — CONFIGURAÇÃO FIREBASE
 // 1) Crie um projeto em https://console.firebase.google.com/
 // 2) Ative Realtime Database.
 // 3) Cadastre um Web App e cole abaixo os dados de firebaseConfig.
@@ -2569,7 +2632,7 @@ if(!configured){
     async function seedIfEmpty(){
       const snap=await get(coreRef);
       if(!snap.exists()){
-        await set(coreRef,{players:state.players,eventDate:state.eventDate||"",eventTime:state.eventTime||"20:00 às 21:30",eventPlace:state.eventPlace||"Apitto Arena Alphaville"});
+        await set(coreRef,{players:state.players,eventDate:state.eventDate||"",eventTime:state.eventTime||"20:00 às 21:30",eventPlace:state.eventPlace||"Apitto Arena Alphaville",bbqEnabled:!!state.bbqEnabled});
         const ph=loadPaymentHistory(); if(Object.keys(ph).length) await set(paymentsRef,ph);
         await set(adminPublicRef,{pix:admin.pix||"",monthlyValue:admin.monthlyValue||"",directTemplate:admin.directTemplate||""});
         const ds=loadDailyStore();
@@ -2588,7 +2651,7 @@ if(!configured){
 
     window.apittoOnline={
       async pushCore(){
-        await set(coreRef,{players:state.players,eventDate:state.eventDate||"",eventTime:state.eventTime||"20:00 às 21:30",eventPlace:state.eventPlace||"Apitto Arena Alphaville"});
+        await set(coreRef,{players:state.players,eventDate:state.eventDate||"",eventTime:state.eventTime||"20:00 às 21:30",eventPlace:state.eventPlace||"Apitto Arena Alphaville",bbqEnabled:!!state.bbqEnabled});
         subscribeDay(currentDateKey());
       },
       async pushDay(dateKey,snap){ if(dateKey&&snap) await set(ref(db,`${root}/days/${dateKey}`),snap); },
