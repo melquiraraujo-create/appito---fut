@@ -323,7 +323,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.17</div>
+    <div>Fut - Apitto Arena — V4.18</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -706,9 +706,9 @@ function renderPlayers(){
         </select>
       </td>
       ${state.bbqEnabled?`<td>
-        <label class="bbq-ticket" title="${p.presence==="confirmado"?"Confirmar participação no churrasco":"Confirme a presença primeiro"}">
+        <label class="bbq-ticket" title="Confirmar participação no churrasco">
           <span aria-hidden="true">🍖</span>
-          <input type="checkbox" aria-label="${escapeHtml(p.name)} vai ao churrasco" ${p.bbq?"checked":""} ${p.presence!=="confirmado"?"disabled":""} onchange="updatePlayer(${i},'bbq',this.checked)">
+          <input type="checkbox" aria-label="${escapeHtml(p.name)} vai ao churrasco" ${p.bbq?"checked":""} onchange="updatePlayer(${i},'bbq',this.checked)">
         </label>
       </td>`:""}
       <td class="player-type" title="${p.goalie?"Goleiro":"Linha"}">${p.goalie?"🧤":"⚽"}</td>`;
@@ -768,12 +768,8 @@ function renderInactivePlayers(){
     </tr>`).join("");
 }
 function updatePlayer(i,f,v){
-  if(f==="bbq"){
-    v=!!v;
-    if(state.players[i].presence!=="confirmado")v=false;
-  }
+  if(f==="bbq")v=!!v;
   state.players[i][f]=v;
-  if(f==="presence" && v!=="confirmado")state.players[i].bbq=false;
   saveState();
   saveCurrentDaySnapshot(currentDateKey());
   renderPlayers();
@@ -863,7 +859,7 @@ function markAllPresent(){
 }
 function resetPresence(){
   if(confirm("Limpar a presença de todos para a próxima sexta?")){
-    activePlayers().forEach(p=>{p.presence="pendente";p.bbq=false});saveState();renderPlayers();lastDraw=null;clearDraw();
+    activePlayers().forEach(p=>p.presence="pendente");saveState();renderPlayers();lastDraw=null;clearDraw();
     saveCurrentDaySnapshot(currentDateKey());
   }
 }
@@ -889,7 +885,7 @@ function updateStats(){
   const bbqCard=document.getElementById("statBbqCard");
   const bbqCount=document.getElementById("statBbq");
   if(bbqCard)bbqCard.hidden=!state.bbqEnabled;
-  if(bbqCount)bbqCount.textContent=players.filter(p=>p.presence==="confirmado"&&p.bbq).length;
+  if(bbqCount)bbqCount.textContent=players.filter(p=>p.bbq).length;
 }
 
 function requestProtectedAction(action,description){
@@ -1514,7 +1510,7 @@ function loadDaySnapshot(dateKey){
     state.bbqEnabled=!!snap.bbqEnabled;
     state.players.forEach(p=>{
       p.presence=snap.presences?.[p.name] || "pendente";
-      p.bbq=!!snap.bbqParticipants?.[p.name] && p.presence==="confirmado";
+      p.bbq=!!snap.bbqParticipants?.[p.name];
     });
     gameState=snap.gameState || freshGameState();
     normalizeGameState();
@@ -2539,7 +2535,7 @@ function applyRemoteDay(dateKey,snap){
     state.bbqEnabled=!!snap.bbqEnabled;
     state.players.forEach(p=>{
       p.presence=snap.presences?.[p.name]||"pendente";
-      p.bbq=!!snap.bbqParticipants?.[p.name]&&p.presence==="confirmado";
+      p.bbq=!!snap.bbqParticipants?.[p.name];
     });
     gameState=snap.gameState||freshGameState();
     normalizeGameState();
@@ -2595,7 +2591,7 @@ startTimerLoop();
 
 <script type="module">
 // ============================================================
-// APITTO FUT V3.5 ONLINE — CONFIGURAÇÃO FIREBASE
+// APITTO FUT V3.6 ONLINE — CONFIGURAÇÃO FIREBASE
 // 1) Crie um projeto em https://console.firebase.google.com/
 // 2) Ative Realtime Database.
 // 3) Cadastre um Web App e cole abaixo os dados de firebaseConfig.
