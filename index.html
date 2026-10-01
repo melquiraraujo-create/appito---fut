@@ -2497,9 +2497,9 @@ function openMesaAddPlayer(side){
   const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
   mesaAddCandidates=sortedActivePlayerEntries()
     .map(({player})=>player)
-    .filter(player=>!findDrawPlayerSlot(player.name)&&canAddPlayerToSpecificTeam(player,teamIndex,false));
+    .filter(player=>canAddPlayerToSpecificTeam(player,teamIndex,false));
   if(!mesaAddCandidates.length){
-    alert(`Não há jogadores fora dos times que caibam no ${teamDisplayName(teamIndex)}. Use 🔄 para trocar.`);
+    alert(`Nenhum jogador cabe no ${teamDisplayName(teamIndex)}. Use 🔄 para trocar.`);
     return;
   }
   mesaAddTeamIndex=teamIndex;
@@ -2511,9 +2511,16 @@ function confirmMesaAddPlayer(){
   const player=mesaAddCandidates[namePickerSelection.mesaAddPicker];
   const teamIndex=mesaAddTeamIndex;
   if(!player||teamIndex===null||!lastDraw)return;
-  if(findDrawPlayerSlot(player.name)||!canAddPlayerToSpecificTeam(player,teamIndex,true)){
+  if(!canAddPlayerToSpecificTeam(player,teamIndex,true)){
     closeModal("mesaAddModal");
     return;
+  }
+  // Se ele estiver em outro time, muda de time e abre uma vaga na origem.
+  const origin=findDrawPlayerSlot(player.name);
+  if(origin){
+    const originTeam=lastDraw.teams[origin.teamIndex];
+    if(origin.role==="goalie")originTeam.goalie=null;
+    else originTeam.line.splice(origin.index,1);
   }
   const copy={...player,goalie:!!player.goalie,phone:player.phone||""};
   if(copy.goalie)lastDraw.teams[teamIndex].goalie=copy;
