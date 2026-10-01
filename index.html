@@ -434,7 +434,7 @@ textarea{min-height:86px;resize:vertical}
   </div>
 
   <div class="footer">
-    <div>Fut - Apitto Arena — V4.21</div>
+    <div>Fut - Apitto Arena — V4.22</div>
     <div id="onlineStatus" class="online-status"><span class="online-dot"></span><span id="onlineStatusText">Conectando...</span></div>
   </div>
 </div>
@@ -2170,7 +2170,17 @@ function nextMatch(){
   const currentA=gameState.teamA;
   const currentB=gameState.teamB;
   if(available.length<3){
-    alert("É necessário ter pelo menos 3 times com jogadores para fazer a rotação.");
+    // Só dois times: registra o resultado e começa outro jogo entre os mesmos times.
+    if(available.length===2&&available.includes(currentA)&&available.includes(currentB)){
+      recordCurrentMatchResult();
+      resetMatchRotation();
+      stopAndResetMatchClock();
+      localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
+      saveCurrentDaySnapshot(currentDateKey());
+      renderGame();
+      return;
+    }
+    alert("É necessário ter pelo menos 2 times com jogadores em campo.");
     return;
   }
   if(!available.includes(currentA)||!available.includes(currentB)){
@@ -2221,7 +2231,7 @@ function nextMatch(){
 function rotationInfoText(){
   if(!lastDraw)return "Faça o sorteio para iniciar a rotação.";
   const available=availableTeamIndexes();
-  if(available.length<3)return "A rotação automática começa quando houver pelo menos 3 times com jogadores.";
+  if(available.length<3)return "Com 2 times, Próximo jogo registra o resultado e reinicia placar e tempo. A rotação começa com 3 times.";
   if(!gameState.rotationStarted){
     const waiting=available.filter(i=>i!==gameState.teamA&&i!==gameState.teamB);
     return `1º jogo: quem perder sai; no empate, ${teamDisplayName(0)} sai. Na fila: ${waiting.map(teamDisplayName).join(" → ")}.`;
