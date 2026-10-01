@@ -125,6 +125,15 @@ textarea{min-height:86px;resize:vertical}
 .duration-center-line{position:absolute;z-index:2;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);border-top:1px solid rgba(102,239,174,.45);border-bottom:1px solid rgba(102,239,174,.45);pointer-events:none}
 .duration-selected-value{text-align:center;margin:8px 0 12px;color:#66efae;font-size:18px;font-weight:800}
 .duration-confirm{width:100%;padding:13px;font-size:17px}
+@media(max-height:560px){
+  .duration-card{padding:10px 14px}
+  .duration-card .modal-head{margin-bottom:4px}
+  .duration-card .modal-head h2{font-size:20px}
+  .duration-hint{display:none}
+  .duration-picker{height:150px;padding:46px 0}
+  .duration-selected-value{margin:4px 0 8px;font-size:15px}
+  .duration-confirm{padding:10px;font-size:15px}
+}
 .score{font-size:42px;font-weight:800;text-align:center;margin:8px 0}
 .team-selects{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
 .active-roster{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
@@ -204,7 +213,9 @@ textarea{min-height:86px;resize:vertical}
 .mesa-player{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-height:43px;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,.065)}
 .mesa-player:last-child{border-bottom:0}
 .mesa-player-name{min-width:0;display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700}
-.mesa-player-name span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa-player-label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa-badge{flex:0 0 auto;padding:2px 6px;border-radius:999px;background:rgba(35,194,107,.16);color:#9ff0c2;font-size:12px;font-weight:800;white-space:nowrap}
+.mesa-badge-foul{background:rgba(213,139,40,.18);color:#f5d27a}
 .mesa-player-actions{display:flex;gap:5px}
 .mesa-player-actions button{padding:6px 8px;border-radius:8px;font-size:12px;touch-action:manipulation}
 .mesa-player-actions .mesa-swap{width:31px;padding:6px 0;background:#31455d}
@@ -245,6 +256,7 @@ textarea{min-height:86px;resize:vertical}
   .mesa-roster h2{font-size:13px}.mesa-roster-score{font-size:17px}
   .mesa-players{padding:2px 4px 3px}
   .mesa-player{gap:3px;min-height:31px;padding:2px 0}.mesa-player-name{gap:3px;font-size:10px}
+  .mesa-badge{padding:1px 4px;font-size:9px}
   .mesa-player-actions{gap:2px}.mesa-player-actions button{min-width:0;padding:4px;border-radius:6px;font-size:9px}
   .mesa-player-actions .mesa-swap{width:25px;padding:4px 0}
   .mesa-center{padding:4px}.mesa-score{font-size:30px;letter-spacing:1px}
@@ -259,7 +271,7 @@ textarea{min-height:86px;resize:vertical}
   .mesa-player{min-height:29px}.mesa-score{font-size:27px}.mesa-timer{font-size:49px}
   .mesa-controls{margin-top:3px}.mesa-controls button{min-height:27px;padding-top:3px;padding-bottom:3px}
 }
-@media(orientation:portrait) and (max-width:900px){
+@media(orientation:portrait){
   .mesa-rotate{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:30px;background:#071019;text-align:center;font-size:20px;font-weight:900}
 }
 </style>
@@ -659,7 +671,7 @@ textarea{min-height:86px;resize:vertical}
 <div id="durationModal" class="modal" onclick="backdropClose(event,'durationModal')" role="dialog" aria-modal="true" aria-labelledby="durationTitle">
   <div class="modal-card modal-small duration-card">
     <div class="modal-head"><h2 id="durationTitle">⏱️ Tempo do jogo</h2><button class="secondary" onclick="closeModal('durationModal')">✕</button></div>
-    <div class="info" style="text-align:center;margin-bottom:8px">Role para cima ou para baixo.</div>
+    <div class="info duration-hint" style="text-align:center;margin-bottom:8px">Role para cima ou para baixo.</div>
     <div class="duration-picker-shell">
       <div class="duration-center-line"></div>
       <div id="durationPicker" class="duration-picker" onscroll="handleDurationPickerScroll()"></div>
@@ -1298,6 +1310,7 @@ function resetMatchRotation(){
 function stopAndResetMatchClock(){
   gameState.scoreA=0;
   gameState.scoreB=0;
+  gameState.history=[];
   gameState.remaining=currentDurationSeconds();
   gameState.running=false;
   gameState.endAt=null;
@@ -2089,6 +2102,7 @@ function setActiveTeams(){
   gameState.teamB=b;
   gameState.scoreA=0;
   gameState.scoreB=0;
+  gameState.history=[];
   resetMatchRotation();
   resetTimer();
   localStorage.setItem("apitto_fut_game_v2",JSON.stringify(gameState));
@@ -2684,7 +2698,16 @@ function setMesaActiveTeams(){
   setActiveTeams();
   renderGame();
 }
-function renderMesaRoster(side){
+function currentMatchCounts(){
+  const counts={};
+  gameState.history.forEach(ev=>{
+    if(ev.type!=="goal"&&ev.type!=="foul")return;
+    const c=counts[ev.name]||(counts[ev.name]={goals:0,fouls:0});
+    if(ev.type==="goal")c.goals++;else c.fouls++;
+  });
+  return counts;
+}
+function renderMesaRoster(side,counts){
   const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
   const color=teamVestColor(teamIndex);
   document.getElementById(`mesaTitle${side}`).textContent=teamDisplayName(teamIndex);
@@ -2696,7 +2719,7 @@ function renderMesaRoster(side){
   if(!players.length){target.innerHTML='<div class="empty">Sem jogadores neste time.</div>';return}
   target.innerHTML=players.map(p=>`
     <div class="mesa-player">
-      <div class="mesa-player-name"><span>${p.goalie?"🧤":"⚽"}</span><span>${escapeHtml(p.name)}</span></div>
+      <div class="mesa-player-name">${p.goalie?"<span>🧤</span>":""}<span class="mesa-player-label">${escapeHtml(p.name)}</span>${counts[p.name]?.goals?`<span class="mesa-badge" title="Gols nesta partida">⚽${counts[p.name].goals}</span>`:""}${counts[p.name]?.fouls?`<span class="mesa-badge mesa-badge-foul" title="Faltas nesta partida">🟨${counts[p.name].fouls}</span>`:""}</div>
       <div class="mesa-player-actions">
         <button class="green" onclick="addGoal('${side}','${escapeJs(p.name)}')">+ Gol</button>
         <button class="orange" onclick="addFoul('${escapeJs(p.name)}')">Falta</button>
@@ -2727,8 +2750,9 @@ function renderMesa(){
   });
   document.getElementById("mesaRotation").textContent=rotationInfoText();
   document.getElementById("mesaScore").textContent=`${gameState.scoreA} × ${gameState.scoreB}`;
-  renderMesaRoster("A");
-  renderMesaRoster("B");
+  const counts=currentMatchCounts();
+  renderMesaRoster("A",counts);
+  renderMesaRoster("B",counts);
   updateMesaTimer();
 }
 window.addEventListener("hashchange",()=>{
