@@ -125,6 +125,9 @@ textarea{min-height:86px;resize:vertical}
 .duration-center-line{position:absolute;z-index:2;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);border-top:1px solid rgba(102,239,174,.45);border-bottom:1px solid rgba(102,239,174,.45);pointer-events:none}
 .duration-selected-value{text-align:center;margin:8px 0 12px;color:#66efae;font-size:18px;font-weight:800}
 .duration-confirm{width:100%;padding:13px;font-size:17px}
+.name-option{display:block;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 14px}
+.name-option.selected{font-size:22px}
+.name-picker-shell{max-width:360px}
 @media(max-height:560px){
   .duration-card{padding:10px 14px}
   .duration-card .modal-head{margin-bottom:4px}
@@ -185,6 +188,7 @@ textarea{min-height:86px;resize:vertical}
 /* ===== Tela horizontal (mesa de jogo) ===== */
 .mesa{position:fixed;inset:0;z-index:9000;display:none;background:radial-gradient(circle at 50% -20%,#15304b 0,#071019 46%,#050b11 100%);color:var(--text)}
 .mesa.open{display:block}
+.mesa [hidden]{display:none!important}
 .mesa-app{width:100%;height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);gap:9px;padding:10px max(10px,env(safe-area-inset-right)) 10px max(10px,env(safe-area-inset-left));overflow:hidden}
 .mesa-topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;padding:10px 14px;background:rgba(18,27,37,.96);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 55px rgba(0,0,0,.26)}
 .mesa-brand{display:flex;align-items:center;gap:11px;white-space:nowrap}
@@ -208,6 +212,8 @@ textarea{min-height:86px;resize:vertical}
 .mesa-color{flex:0 0 10px;width:10px;height:30px;border-radius:8px;background:currentColor;box-shadow:0 0 16px currentColor}
 .mesa-roster h2{margin:0;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mesa-roster-score{font-size:24px;font-weight:900}
+.mesa-roster-side{display:flex;align-items:center;gap:10px}
+.mesa .mesa-add{display:grid;place-items:center;width:32px;height:32px;padding:0;border-radius:50%;background:var(--green);font-size:20px;line-height:1}
 .mesa-players{min-height:0;overflow:auto;padding:4px 9px 8px;scrollbar-width:thin}
 .mesa-players .empty{padding:12px 4px}
 .mesa-player{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-height:43px;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,.065)}
@@ -254,6 +260,7 @@ textarea{min-height:86px;resize:vertical}
   .mesa-roster,.mesa-center{border-radius:9px}
   .mesa-roster-head{gap:5px;padding:5px 6px}.mesa-color{flex-basis:6px;width:6px;height:20px}
   .mesa-roster h2{font-size:13px}.mesa-roster-score{font-size:17px}
+  .mesa .mesa-add{width:24px;height:24px;font-size:15px}
   .mesa-players{padding:2px 4px 3px}
   .mesa-player{gap:3px;min-height:31px;padding:2px 0}.mesa-player-name{gap:3px;font-size:10px}
   .mesa-badge{padding:1px 4px;font-size:9px}
@@ -463,7 +470,7 @@ textarea{min-height:86px;resize:vertical}
       </div>
       <div class="mesa-arena">
         <section class="mesa-roster">
-          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorA"></i><h2 id="mesaTitleA"></h2></div><div class="mesa-roster-score" id="mesaScoreA">0</div></div>
+          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorA"></i><h2 id="mesaTitleA"></h2></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddA" onclick="openMesaAddPlayer('A')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreA">0</div></div></div>
           <div class="mesa-players" id="mesaPlayersA"></div>
         </section>
         <section class="mesa-center">
@@ -477,7 +484,7 @@ textarea{min-height:86px;resize:vertical}
           </div>
         </section>
         <section class="mesa-roster">
-          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorB"></i><h2 id="mesaTitleB"></h2></div><div class="mesa-roster-score" id="mesaScoreB">0</div></div>
+          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorB"></i><h2 id="mesaTitleB"></h2></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddB" onclick="openMesaAddPlayer('B')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreB">0</div></div></div>
           <div class="mesa-players" id="mesaPlayersB"></div>
         </section>
       </div>
@@ -721,21 +728,35 @@ textarea{min-height:86px;resize:vertical}
 </div>
 
 <!-- Troca fixa de jogador -->
+<div id="mesaAddModal" class="modal" onclick="backdropClose(event,'mesaAddModal')" role="dialog" aria-modal="true" aria-labelledby="mesaAddTitle">
+  <div class="modal-card modal-small duration-card">
+    <div class="modal-head">
+      <h2 id="mesaAddTitle">＋ Adicionar jogador</h2>
+      <button class="secondary" onclick="closeModal('mesaAddModal')">✕</button>
+    </div>
+    <div class="info duration-hint" style="text-align:center;margin-bottom:8px">Role até o jogador que entra.</div>
+    <div class="duration-picker-shell name-picker-shell">
+      <div class="duration-center-line"></div>
+      <div id="mesaAddPicker" class="duration-picker" onscroll="handleNamePickerScroll('mesaAddPicker')"></div>
+    </div>
+    <button class="green duration-confirm" style="margin-top:12px" onclick="confirmMesaAddPlayer()">✓ Adicionar ao time</button>
+  </div>
+</div>
+
 <div id="playerSwapModal" class="modal" onclick="backdropClose(event,'playerSwapModal')" role="dialog" aria-modal="true" aria-labelledby="playerSwapTitle">
-  <div class="modal-card modal-small">
+  <div class="modal-card modal-small duration-card">
     <div class="modal-head">
       <h2 id="playerSwapTitle">🔄 Trocar jogador</h2>
       <button class="secondary" onclick="closeModal('playerSwapModal')">✕</button>
     </div>
     <div id="playerSwapOutText" class="info" style="font-size:16px;margin-bottom:12px"></div>
-    <div class="swap-player-grid">
-      <label>
-        <span class="info">Jogador que entra no time</span>
-        <select id="swapPlayerIn"></select>
-      </label>
+    <div class="info duration-hint" style="text-align:center;margin-bottom:8px">Role até o jogador que entra.</div>
+    <div class="duration-picker-shell name-picker-shell">
+      <div class="duration-center-line"></div>
+      <div id="swapPicker" class="duration-picker" onscroll="handleNamePickerScroll('swapPicker')"></div>
     </div>
-    <div class="info" style="margin-top:10px">Disponíveis: jogadores do próximo time, não confirmados e confirmados que ficaram fora dos times. A troca altera definitivamente as formações.</div>
-    <button class="green" style="width:100%;margin-top:14px" onclick="confirmPlayerSwap()">✓ Confirmar troca fixa</button>
+    <div class="info duration-hint" style="margin-top:10px">Se ele estiver em outro time, os dois trocam de lugar. Se estiver fora dos times, entra no lugar e quem sai fica fora dos times.</div>
+    <button class="green duration-confirm" style="margin-top:12px" onclick="confirmPlayerSwap()">✓ Confirmar troca</button>
   </div>
 </div>
 
@@ -2321,14 +2342,6 @@ function undoLastEvent(){
   renderGame();
 }
 
-function nextWaitingTeamIndex(){
-  const available=availableTeamIndexes();
-  const active=[gameState.teamA,gameState.teamB];
-  const queue=gameState.rotationStarted
-    ?reconciledWaitingTeams(available,active)
-    :available.filter(teamIndex=>!active.includes(teamIndex));
-  return queue[0];
-}
 function findDrawPlayerSlot(playerName){
   ensureDrawTeams();
   if(!lastDraw)return null;
@@ -2353,45 +2366,12 @@ function setDrawPlayerAtSlot(slot,player){
   if(slot.role==="goalie")team.goalie=copy;
   else team.line[slot.index]=copy;
 }
-function fixedSwapCandidates(currentPlayerName){
-  const candidates=[];
-  const seen=new Set([currentPlayerName]);
-  const activeNames=new Set([
-    ...teamPlayers(gameState.teamA),
-    ...teamPlayers(gameState.teamB)
-  ].map(player=>player.name));
-
-  function addCandidate(player,source,slot){
-    if(!player||seen.has(player.name)||activeNames.has(player.name))return;
-    seen.add(player.name);
-    candidates.push({player:{...player},source,slot:slot||findDrawPlayerSlot(player.name)});
-  }
-
-  const nextTeamIndex=nextWaitingTeamIndex();
-  const nextTeam=lastDraw?.teams?.[nextTeamIndex];
-  if(nextTeam){
-    if(nextTeam.goalie){
-      addCandidate(nextTeam.goalie,`Próximo — ${teamDisplayName(nextTeamIndex)}`,{teamIndex:nextTeamIndex,role:"goalie",index:-1});
-    }
-    [...(nextTeam.line||[])].sort(comparePlayerNames).forEach(player=>{
-      const index=nextTeam.line.findIndex(member=>member.name===player.name);
-      addCandidate(player,`Próximo — ${teamDisplayName(nextTeamIndex)}`,{teamIndex:nextTeamIndex,role:"line",index});
-    });
-  }
-
-  sortedActivePlayerEntries()
+function fixedSwapCandidates(currentPlayerName,teamIndex){
+  const teammates=new Set(teamPlayers(teamIndex).map(player=>player.name));
+  return sortedActivePlayerEntries()
     .map(({player})=>player)
-    .forEach(player=>{
-      if(player.presence!=="confirmado"){
-        addCandidate(player,player.presence==="nao"?"Não confirmado — Ausente":"Não confirmado — Pendente");
-        return;
-      }
-      if(playerMemberships(player.name).length===0){
-        addCandidate(player,"Confirmado — fora dos times",null);
-      }
-    });
-
-  return candidates;
+    .filter(player=>player.name!==currentPlayerName&&!teammates.has(player.name))
+    .map(player=>({player:{...player},slot:findDrawPlayerSlot(player.name)}));
 }
 function openFixedPlayerSwap(side,playerName){
   if(!lastDraw){alert("Faça o sorteio primeiro.");return}
@@ -2401,9 +2381,9 @@ function openFixedPlayerSwap(side,playerName){
   const currentPlayer=drawPlayerAtSlot(slot);
   if(!currentPlayer)return;
 
-  swapInCandidates=fixedSwapCandidates(currentPlayer.name);
+  swapInCandidates=fixedSwapCandidates(currentPlayer.name,teamIndex);
   if(!swapInCandidates.length){
-    alert("Não há jogadores disponíveis no próximo time, fora dos times ou na lista de não confirmados.");
+    alert("Não há outros jogadores cadastrados para a troca.");
     return;
   }
 
@@ -2411,10 +2391,8 @@ function openFixedPlayerSwap(side,playerName){
   activePlayerSwapTarget={...slot,playerName:currentPlayer.name};
   document.getElementById("playerSwapTitle").textContent=`🔄 Troca fixa — ${teamDisplayName(teamIndex)}`;
   document.getElementById("playerSwapOutText").textContent=`Sai: ${currentPlayer.goalie?"🧤":"⚽"} ${currentPlayer.name}`;
-  document.getElementById("swapPlayerIn").innerHTML=swapInCandidates
-    .map((candidate,candidateIndex)=>`<option value="${candidateIndex}">${escapeHtml(candidate.player.name)} — ${escapeHtml(candidate.source)}</option>`)
-    .join("");
   openModal("playerSwapModal");
+  renderNamePicker("swapPicker",swapInCandidates.map(candidate=>candidate.player.name));
 }
 function confirmPlayerSwap(){
   if(!lastDraw||!activePlayerSwapSide||!activePlayerSwapTarget)return;
@@ -2427,7 +2405,7 @@ function confirmPlayerSwap(){
   }
 
   const playerOut=drawPlayerAtSlot(target);
-  const candidate=swapInCandidates[Number(document.getElementById("swapPlayerIn")?.value)];
+  const candidate=swapInCandidates[namePickerSelection.swapPicker];
   if(!playerOut||playerOut.name!==target.playerName||!candidate){
     alert("A formação mudou. Abra a troca novamente.");
     closeModal("playerSwapModal");
@@ -2447,6 +2425,7 @@ function confirmPlayerSwap(){
 
   setDrawPlayerAtSlot(target,playerIn);
   if(sourceSlot)setDrawPlayerAtSlot(sourceSlot,playerOut);
+  else markPlayerPresent(playerIn.name);
 
   activePlayerSwapSide=null;
   activePlayerSwapTarget=null;
@@ -2457,6 +2436,94 @@ function confirmPlayerSwap(){
   renderGame();
 }
 
+const namePickerSelection={};
+function renderNamePicker(id,labels){
+  const picker=document.getElementById(id);
+  if(!picker)return;
+  picker.innerHTML=labels.map((label,index)=>`<button type="button" class="duration-option name-option" data-index="${index}" aria-selected="false" onclick="selectNamePickerIndex('${id}',${index})">${escapeHtml(label)}</button>`).join("");
+  setNamePickerSelection(id,0);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>scrollNamePickerTo(id,0,"auto")));
+}
+function setNamePickerSelection(id,index){
+  namePickerSelection[id]=index;
+  document.querySelectorAll(`#${id} .name-option`).forEach(option=>{
+    const selected=Number(option.dataset.index)===index;
+    option.classList.toggle("selected",selected);
+    option.setAttribute("aria-selected",selected?"true":"false");
+  });
+}
+function scrollNamePickerTo(id,index,behavior){
+  const picker=document.getElementById(id);
+  const option=picker?.querySelector(`[data-index="${index}"]`);
+  if(!picker||!option)return;
+  picker.scrollTo({top:option.offsetTop-(picker.clientHeight-option.offsetHeight)/2,behavior:behavior||"auto"});
+  setNamePickerSelection(id,index);
+}
+function selectNamePickerIndex(id,index){
+  scrollNamePickerTo(id,index,"smooth");
+}
+const namePickerFrames={};
+function handleNamePickerScroll(id){
+  if(namePickerFrames[id])cancelAnimationFrame(namePickerFrames[id]);
+  namePickerFrames[id]=requestAnimationFrame(()=>{
+    const picker=document.getElementById(id);
+    if(!picker)return;
+    const center=picker.getBoundingClientRect().top+picker.clientHeight/2;
+    let closest=null;
+    let distance=Infinity;
+    picker.querySelectorAll(".name-option").forEach(option=>{
+      const rect=option.getBoundingClientRect();
+      const current=Math.abs((rect.top+rect.height/2)-center);
+      if(current<distance){distance=current;closest=option}
+    });
+    if(closest)setNamePickerSelection(id,Number(closest.dataset.index));
+  });
+}
+function markPlayerPresent(playerName){
+  const player=state.players.find(p=>p.name===playerName);
+  if(!player||player.presence==="confirmado")return;
+  player.presence="confirmado";
+  saveState();
+  renderPlayers();
+}
+function teamHasOpenSlot(teamIndex){
+  const team=lastDraw?.teams?.[teamIndex];
+  return !!team&&(!team.goalie||(team.line||[]).length<6);
+}
+let mesaAddTeamIndex=null;
+let mesaAddCandidates=[];
+function openMesaAddPlayer(side){
+  if(!lastDraw){alert("Faça o sorteio primeiro.");return}
+  const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
+  mesaAddCandidates=sortedActivePlayerEntries()
+    .map(({player})=>player)
+    .filter(player=>!findDrawPlayerSlot(player.name)&&canAddPlayerToSpecificTeam(player,teamIndex,false));
+  if(!mesaAddCandidates.length){
+    alert(`Não há jogadores fora dos times que caibam no ${teamDisplayName(teamIndex)}. Use 🔄 para trocar.`);
+    return;
+  }
+  mesaAddTeamIndex=teamIndex;
+  document.getElementById("mesaAddTitle").textContent=`＋ Adicionar ao ${teamDisplayName(teamIndex)}`;
+  openModal("mesaAddModal");
+  renderNamePicker("mesaAddPicker",mesaAddCandidates.map(player=>player.name));
+}
+function confirmMesaAddPlayer(){
+  const player=mesaAddCandidates[namePickerSelection.mesaAddPicker];
+  const teamIndex=mesaAddTeamIndex;
+  if(!player||teamIndex===null||!lastDraw)return;
+  if(findDrawPlayerSlot(player.name)||!canAddPlayerToSpecificTeam(player,teamIndex,true)){
+    closeModal("mesaAddModal");
+    return;
+  }
+  const copy={...player,goalie:!!player.goalie,phone:player.phone||""};
+  if(copy.goalie)lastDraw.teams[teamIndex].goalie=copy;
+  else lastDraw.teams[teamIndex].line.push(copy);
+  mesaAddTeamIndex=null;
+  mesaAddCandidates=[];
+  closeModal("mesaAddModal");
+  markPlayerPresent(player.name);
+  persistTeamEdit();
+}
 function renderRoster(side,teamIndex,targetId,titleId){
   const title=document.getElementById(titleId);
   if(title) title.textContent=teamDisplayName(teamIndex);
@@ -2713,6 +2780,7 @@ function renderMesaRoster(side,counts){
   document.getElementById(`mesaTitle${side}`).textContent=teamDisplayName(teamIndex);
   document.getElementById(`mesaColor${side}`).style.color=color;
   document.getElementById(`mesaScore${side}`).textContent=side==="A"?gameState.scoreA:gameState.scoreB;
+  document.getElementById(`mesaAdd${side}`).hidden=!teamHasOpenSlot(teamIndex);
   const target=document.getElementById(`mesaPlayers${side}`);
   const players=teamPlayers(teamIndex);
   if(!lastDraw){target.innerHTML='<div class="empty">Faça o sorteio primeiro.</div>';return}
