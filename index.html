@@ -201,16 +201,15 @@ textarea{min-height:86px;resize:vertical}
 .mesa-actions .online-status{margin-top:0;padding:7px 10px;font-size:12px;white-space:nowrap}
 .mesa button.ghost{background:transparent;border:1px solid var(--line);color:#d7e5f3}
 .mesa .mesa-icon{display:grid;place-items:center;width:38px;height:38px;padding:0}
-.mesa-match{min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:9px;padding:10px;background:rgba(18,27,37,.97);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 55px rgba(0,0,0,.26)}
-.mesa-head{min-width:0;display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.25fr) minmax(150px,1fr);align-items:center;gap:10px}
-.mesa-head select{padding:10px 12px;border-radius:10px;font-weight:800}
-.mesa-rotation{min-width:0;padding:9px 12px;border:1px dashed #49627e;border-radius:10px;background:#0d1722;color:#bdd0e2;text-align:center;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa-match{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr);gap:9px;padding:10px;background:rgba(18,27,37,.97);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 55px rgba(0,0,0,.26)}
 .mesa-arena{min-height:0;display:grid;grid-template-columns:minmax(260px,1fr) minmax(340px,1.05fr) minmax(260px,1fr);gap:9px}
 .mesa-roster{min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;background:#0c151f;border:1px solid var(--line);border-radius:14px}
 .mesa-roster-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
 .mesa-roster-title{display:flex;align-items:center;gap:9px;min-width:0}
 .mesa-color{flex:0 0 10px;width:10px;height:30px;border-radius:8px;background:currentColor;box-shadow:0 0 16px currentColor}
-.mesa-roster h2{margin:0;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa .mesa-team-select{width:auto;max-width:100%;min-width:0;padding:4px 8px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text);font-size:19px;font-weight:800;text-overflow:ellipsis;cursor:pointer}
+.mesa .mesa-team-select:hover,.mesa .mesa-team-select:focus{border-color:var(--line);background:#101923;outline:none}
+.mesa .mesa-team-select option{background:#0c151f;font-size:15px}
 .mesa-roster-score{font-size:24px;font-weight:900}
 .mesa-roster-side{display:flex;align-items:center;gap:10px}
 .mesa .mesa-add{display:grid;place-items:center;width:32px;height:32px;padding:0;border-radius:50%;background:var(--green);font-size:20px;line-height:1}
@@ -253,13 +252,10 @@ textarea{min-height:86px;resize:vertical}
   .mesa-actions{gap:4px}.mesa-actions .mesa-icon{width:30px;height:30px;border-radius:7px;font-size:14px}
   .mesa-actions .danger,.mesa-actions .orange{padding:6px 8px;border-radius:8px;font-size:10px}
   .mesa-match{padding:4px;gap:4px;border-radius:10px}
-  .mesa-head{grid-template-columns:minmax(0,1fr) minmax(190px,1.18fr) minmax(0,1fr);gap:4px}
-  .mesa-head select{padding:5px 6px;border-radius:7px;font-size:10px}
-  .mesa-rotation{padding:5px 6px;border-radius:7px;font-size:9px}
   .mesa-arena{grid-template-columns:minmax(0,1fr) minmax(230px,1.25fr) minmax(0,1fr);gap:4px}
   .mesa-roster,.mesa-center{border-radius:9px}
   .mesa-roster-head{gap:5px;padding:5px 6px}.mesa-color{flex-basis:6px;width:6px;height:20px}
-  .mesa-roster h2{font-size:13px}.mesa-roster-score{font-size:17px}
+  .mesa .mesa-team-select{padding:2px 4px;border-radius:6px;font-size:13px}.mesa-roster-score{font-size:17px}
   .mesa .mesa-add{width:24px;height:24px;font-size:15px}
   .mesa-players{padding:2px 4px 3px}
   .mesa-player{gap:3px;min-height:31px;padding:2px 0}.mesa-player-name{gap:3px;font-size:10px}
@@ -274,7 +270,6 @@ textarea{min-height:86px;resize:vertical}
 }
 @media(orientation:landscape) and (max-height:390px){
   .mesa-topbar{padding-top:3px;padding-bottom:3px}.mesa-ball{width:27px;height:27px}
-  .mesa-head select,.mesa-rotation{padding-top:4px;padding-bottom:4px}
   .mesa-player{min-height:29px}.mesa-score{font-size:27px}.mesa-timer{font-size:49px}
   .mesa-controls{margin-top:3px}.mesa-controls button{min-height:27px;padding-top:3px;padding-bottom:3px}
 }
@@ -463,14 +458,9 @@ textarea{min-height:86px;resize:vertical}
       </div>
     </header>
     <section class="mesa-match">
-      <div class="mesa-head">
-        <select id="mesaTeamA" onchange="setMesaActiveTeams()" aria-label="Time da esquerda"></select>
-        <div id="mesaRotation" class="mesa-rotation"></div>
-        <select id="mesaTeamB" onchange="setMesaActiveTeams()" aria-label="Time da direita"></select>
-      </div>
       <div class="mesa-arena">
         <section class="mesa-roster">
-          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorA"></i><h2 id="mesaTitleA"></h2></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddA" onclick="openMesaAddPlayer('A')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreA">0</div></div></div>
+          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorA"></i><select id="mesaTeamA" class="mesa-team-select" onchange="setMesaActiveTeams()" aria-label="Time da esquerda"></select></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddA" onclick="openMesaAddPlayer('A')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreA">0</div></div></div>
           <div class="mesa-players" id="mesaPlayersA"></div>
         </section>
         <section class="mesa-center">
@@ -484,7 +474,7 @@ textarea{min-height:86px;resize:vertical}
           </div>
         </section>
         <section class="mesa-roster">
-          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorB"></i><h2 id="mesaTitleB"></h2></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddB" onclick="openMesaAddPlayer('B')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreB">0</div></div></div>
+          <div class="mesa-roster-head"><div class="mesa-roster-title"><i class="mesa-color" id="mesaColorB"></i><select id="mesaTeamB" class="mesa-team-select" onchange="setMesaActiveTeams()" aria-label="Time da direita"></select></div><div class="mesa-roster-side"><button class="mesa-add" id="mesaAddB" onclick="openMesaAddPlayer('B')" title="Adicionar jogador" aria-label="Adicionar jogador" hidden>＋</button><div class="mesa-roster-score" id="mesaScoreB">0</div></div></div>
           <div class="mesa-players" id="mesaPlayersB"></div>
         </section>
       </div>
@@ -2719,7 +2709,7 @@ const MESA_HASH="#mesa";
 const VEST_COLORS=[
   ["amarel","#f5c451"],["laranj","#f28c45"],["azul","#3b82f6"],["verde","#56c77a"],
   ["vermelh","#ef4444"],["rosa","#ec4899"],["pink","#ec4899"],["roxo","#a855f7"],
-  ["lilas","#c084fc"],["branc","#e5e7eb"],["pret","#6b7280"],["cinza","#9ca3af"],
+  ["lilas","#c084fc"],["violet","#8b5cf6"],["branc","#e5e7eb"],["pret","#6b7280"],["cinza","#9ca3af"],
   ["marrom","#a16207"],["vinho","#9f1239"],["dourad","#eab308"],["celeste","#7dd3fc"]
 ];
 const FALLBACK_TEAM_COLORS=["#3b82f6","#f5c451","#f28c45","#56c77a"];
@@ -2784,7 +2774,6 @@ function currentMatchCounts(){
 function renderMesaRoster(side,counts){
   const teamIndex=side==="A"?gameState.teamA:gameState.teamB;
   const color=teamVestColor(teamIndex);
-  document.getElementById(`mesaTitle${side}`).textContent=teamDisplayName(teamIndex);
   document.getElementById(`mesaColor${side}`).style.color=color;
   document.getElementById(`mesaScore${side}`).textContent=side==="A"?gameState.scoreA:gameState.scoreB;
   document.getElementById(`mesaAdd${side}`).hidden=!teamHasOpenSlot(teamIndex);
@@ -2823,7 +2812,6 @@ function renderMesa(){
     select.innerHTML=options;
     select.value=String(side==="A"?gameState.teamA:gameState.teamB);
   });
-  document.getElementById("mesaRotation").textContent=rotationInfoText();
   document.getElementById("mesaScore").textContent=`${gameState.scoreA} × ${gameState.scoreB}`;
   const counts=currentMatchCounts();
   renderMesaRoster("A",counts);
